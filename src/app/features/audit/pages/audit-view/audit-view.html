@@ -4,7 +4,8 @@
 
     <div class="picker-controls">
       <div class="picker-search-wrap" (focusout)="onTablePickerFocusOut($event)">
-        <label class="picker-search" for="audit-view-table-search">
+        <div class="picker-search">
+          <label class="visually-hidden" for="audit-view-table-search">Search audit tables</label>
           <svg
             aria-hidden="true"
             viewBox="0 0 24 24"
@@ -30,8 +31,18 @@
             (input)="onTableSearch($event)"
             (keydown)="onTableSearchKeydown($event)"
           />
+          @if (tableSearchQuery) {
+            <button
+              type="button"
+              class="clear-table-search"
+              aria-label="Clear table search"
+              (click)="clearTableSearch()"
+            >
+              ×
+            </button>
+          }
           <span class="table-count">{{ tableLabels.length }} tables</span>
-        </label>
+        </div>
 
         @if (isTableMenuOpen) {
           <div id="audit-view-table-options" class="table-options" role="listbox">
@@ -75,7 +86,7 @@
       <button
         type="button"
         class="refresh-button"
-        [disabled]="areTableLabelsLoading"
+        [disabled]="areTableLabelsLoading || isRecordsLoading"
         (click)="refresh()"
       >
         <span aria-hidden="true">↻</span>

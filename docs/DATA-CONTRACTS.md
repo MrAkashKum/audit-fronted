@@ -4,14 +4,14 @@
 
 These four files are the complete, executable fixture data. They are copied to the application root by Angular's public asset configuration.
 
-| Purpose                  | Canonical file                                     | Browser URL                               |
-| ------------------------ | -------------------------------------------------- | ----------------------------------------- |
-| Audit table selector     | ../public/data/audit-table-labels.json             | /data/audit-table-labels.json             |
-| Position Balance records | ../public/data/audit-records.json                  | /data/audit-records.json                  |
-| Holiday Calendar records | ../public/data/audit-records-holiday-calendar.json | /data/audit-records-holiday-calendar.json |
-| Loco Singapore records   | ../public/data/audit-records-loco-singapore.json   | /data/audit-records-loco-singapore.json   |
+| Purpose                       | Canonical file                                     | Browser URL                               |
+| ----------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| Audit table selector fallback | ../public/data/audit-table-labels.json             | /data/audit-table-labels.json             |
+| Position Balance records      | ../public/data/audit-records.json                  | /data/audit-records.json                  |
+| Holiday Calendar records      | ../public/data/audit-records-holiday-calendar.json | /data/audit-records-holiday-calendar.json |
+| Loco Singapore records        | ../public/data/audit-records-loco-singapore.json   | /data/audit-records-loco-singapore.json   |
 
-The canonical files remain the source of truth. This document describes them instead of duplicating large fixtures that could drift out of sync.
+The live selector source is `GET /api/v1/allTable`. If that request fails, the service requests `/data/audit-table-labels.json`, allowing the same feature to work in offline and demonstration environments. The record files remain the executable development fixtures.
 
 ## Shared response envelope
 
@@ -53,6 +53,9 @@ Canonical example:
 
 ### Rules
 
+- Request labels from `GET /api/v1/allTable` first.
+- Render every string in data.tableLabels as a clickable selector option.
+- Fall back to `/data/audit-table-labels.json` only when the live request fails.
 - tableLabels is an ordered array of unique strings.
 - The label is both the user-facing selector identity and the service lookup input.
 - Except for Position Balance, a label maps to a file slug by trimming, lowercasing, replacing non-alphanumeric groups with hyphens, and trimming edge hyphens.
@@ -330,13 +333,14 @@ A backend-provided schema is preferred if future pages can contain only null val
 
 Example for label “Trade Instructions”:
 
-1. Add “Trade Instructions” to audit-table-labels.json.
-2. Add public/data/audit-records-trade-instructions.json.
-3. Use the shared envelope and page metadata.
-4. Put current business fields in originalData.
-5. Put complete revision snapshots in auditHistory.
-6. Keep scalar values consistent by field across rows.
-7. Validate and test.
+1. Return “Trade Instructions” in `data.tableLabels` from `GET /api/v1/allTable`.
+2. Add “Trade Instructions” to audit-table-labels.json for offline/demo fallback behavior.
+3. Add public/data/audit-records-trade-instructions.json.
+4. Use the shared envelope and page metadata.
+5. Put current business fields in originalData.
+6. Put complete revision snapshots in auditHistory.
+7. Keep scalar values consistent by field across rows.
+8. Validate and test.
 
 ```bash
 jq empty public/data/*.json

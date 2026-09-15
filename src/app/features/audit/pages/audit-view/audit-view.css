@@ -100,6 +100,24 @@ button {
   opacity: 1;
 }
 
+.picker-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clear-table-search {
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: 50%;
+  color: #aaa49a;
+  background: transparent;
+  font-size: 1.25rem;
+}
+
+.clear-table-search:hover,
+.clear-table-search:focus-visible {
+  color: #f3c557;
+}
+
 .table-count {
   flex: 0 0 auto;
   padding: 0.35rem 0.72rem;
@@ -558,27 +576,12 @@ th {
   border: 0;
   color: inherit;
   background: transparent;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-}
-
-.sort-button:hover,
-.sort-button:focus-visible {
-  color: #f6cf69;
-}
-
-.sort-button:focus-visible {
-  outline: 2px solid #f3c557;
-  outline-offset: 0.35rem;
 }
 
 .sort-indicator {
-  display: inline-block;
   min-width: 0.75rem;
   color: #aaa49a;
   font-size: 1rem;
-  line-height: 1;
 }
 
 th:first-child,

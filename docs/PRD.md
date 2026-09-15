@@ -83,8 +83,10 @@ Needs to connect the reusable UI to a real paginated API and add audit entities 
 
 ### FR-01: Load table labels
 
-- On initialization, request the table-label response.
+- On initialization, request the table-label response from `GET /api/v1/allTable`.
+- If the endpoint fails, request the configured `/data/audit-table-labels.json` fallback.
 - Do not request records automatically.
+- Render every returned data.tableLabels entry as a clickable option.
 - Display the number of available labels in the selector.
 - Provide loading, no-match, and failure messages inside the selector.
 
@@ -100,9 +102,11 @@ Needs to connect the reusable UI to a real paginated API and add audit entities 
 - Opening or typing in the table search shows matching options.
 - Matching is case-insensitive across both source labels and visible display names.
 - Arrow Up/Down moves through options, Enter selects, and Escape closes the menu.
+- Non-empty search text provides a clear action.
 - Each option shows initials, a display name, and its source label.
 - The selected option shows Current and a confirmation mark.
 - Selection closes the menu and starts at page 0 with the default page size.
+- The document title identifies either the table-selection state or the selected friendly table name.
 
 ### FR-04: Table-specific source request
 
@@ -216,6 +220,7 @@ Refresh must:
 5. Clear response, schemas, rows, errors, expansions, and filter conditions.
 6. Reload table labels.
 7. Display the empty-selection state.
+8. Restore the default document title.
 
 ### FR-15: Response states
 
@@ -228,7 +233,7 @@ Refresh must:
 
 All data uses a shared top-level envelope with timestamp, status, code, message, and data.
 
-The table-label response contains data.tableLabels.
+The `GET /api/v1/allTable` response contains data.tableLabels. The fallback JSON uses the identical contract.
 
 The records response contains:
 

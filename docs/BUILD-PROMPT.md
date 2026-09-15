@@ -44,7 +44,9 @@ The final feature files should include:
 - src/app/features/audit/services/audit.service.ts
 - src/app/features/audit/services/audit.service.spec.ts
 
-JSON fixtures
+API and JSON fixtures
+
+Load selector labels from `GET /api/v1/allTable`. Subscribe to the response in the component and render every value in `data.tableLabels` as a clickable search result. If the endpoint fails, load `public/data/audit-table-labels.json` through `/data/audit-table-labels.json` as the offline/demo fallback.
 
 Use all four existing files:
 
@@ -115,7 +117,7 @@ Core behavior
 
 1. Initial and Refresh state
 
-- On initialization, load only table labels.
+- On initialization, load only table labels from `GET /api/v1/allTable`, falling back to the table-label JSON only on request failure.
 - Do not automatically select the first table.
 - Do not request records until the user explicitly selects a table.
 - Show a centered “Choose an audit table” state.
@@ -126,9 +128,11 @@ Core behavior
 - Provide a searchable combobox/listbox.
 - Filter both raw labels and friendly display names case-insensitively.
 - Support Arrow Up/Down, Enter, and Escape in the combobox.
+- Show an accessible clear action while search text is non-empty.
 - Show table initials, friendly names, source labels, and total table count.
 - Mark the selected option as Current with a check.
 - Selecting a table closes the dropdown, clears incompatible filters, resets pageNo to 0, and requests records.
+- Set the document title from the empty state or selected friendly table name.
 
 3. Dynamic source table
 

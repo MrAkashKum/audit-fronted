@@ -33,14 +33,14 @@ describe('AuditService', () => {
     expect(responseStatus).toBe('SUCCESS');
   });
 
-  it('loads the searchable table labels from the JSON API', () => {
+  it('loads the searchable table labels from the allTable API', () => {
     let tableLabels: string[] = [];
 
     service.getAuditTableLabels().subscribe((response) => {
       tableLabels = response.data.tableLabels;
     });
 
-    const request = httpTesting.expectOne('data/audit-table-labels.json');
+    const request = httpTesting.expectOne('/api/v1/allTable');
     expect(request.request.method).toBe('GET');
 
     request.flush({
@@ -48,6 +48,30 @@ describe('AuditService', () => {
         tableLabels: ['Holiday Calendar', 'Loco Singapore', 'Position Balance'],
       },
     });
+    expect(tableLabels).toHaveLength(3);
+  });
+
+  it('uses the table-label JSON fallback when the allTable API is unavailable', () => {
+    let tableLabels: string[] = [];
+
+    service.getAuditTableLabels().subscribe((response) => {
+      tableLabels = response.data.tableLabels;
+    });
+
+    const apiRequest = httpTesting.expectOne('/api/v1/allTable');
+    apiRequest.flush('Unable to load tables', {
+      status: 500,
+      statusText: 'Server Error',
+    });
+
+    const fallbackRequest = httpTesting.expectOne('data/audit-table-labels.json');
+    expect(fallbackRequest.request.method).toBe('GET');
+    fallbackRequest.flush({
+      data: {
+        tableLabels: ['Holiday Calendar', 'Loco Singapore', 'Position Balance'],
+      },
+    });
+
     expect(tableLabels).toHaveLength(3);
   });
 

@@ -1,4 +1,5 @@
 import { Component, inject, OnDestroy, OnInit } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 
 import { AuditTableLabelsApiResponse } from '../../models/audit-table-label.model';
@@ -29,9 +30,11 @@ const SORT_RECORD_STATE = '__RECORD_STATE__';
 })
 export class AuditView implements OnInit, OnDestroy {
   private readonly auditService = inject(AuditService);
+  private readonly documentTitle = inject(Title);
   private auditRecordsSubscription?: Subscription;
   private tableLabelsSubscription?: Subscription;
   private nextFilterId = 1;
+  private readonly defaultDocumentTitle = 'Audit tables | Audit Frontend';
 
   private readonly mainColumnExclusions = new Set([
     'ID',
@@ -59,6 +62,11 @@ export class AuditView implements OnInit, OnDestroy {
     LOCOMOTIVE_NAME: 'Name',
     DEPOT_CODE: 'Depot',
     CALENDAR_CODE: 'Calendar',
+  };
+  private readonly tablePresentation: Record<string, { displayName: string; initials: string }> = {
+    'Holiday Calendar': { displayName: 'Holiday Calendar', initials: 'HC' },
+    'Loco Singapore': { displayName: 'Singapore locomotives', initials: 'SG' },
+    'Position Balance': { displayName: 'Position balances', initials: 'PB' },
   };
   private readonly operatorsByType: Record<AuditFieldType, AuditFilterOperatorOption[]> = {
     text: [
@@ -187,6 +195,7 @@ export class AuditView implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.documentTitle.setTitle(this.defaultDocumentTitle);
     this.loadTableLabels();
   }
 
@@ -266,6 +275,7 @@ export class AuditView implements OnInit, OnDestroy {
     this.expandedRowIds.clear();
     this.resetFilters();
     this.resetSorting();
+    this.documentTitle.setTitle(this.defaultDocumentTitle);
     this.loadTableLabels();
   }
 
@@ -273,6 +283,13 @@ export class AuditView implements OnInit, OnDestroy {
     this.tableSearchQuery = (event.target as HTMLInputElement).value;
     this.isTableMenuOpen = true;
     this.activeTableOptionIndex = this.filteredTableLabels.length > 0 ? 0 : -1;
+  }
+
+  clearTableSearch(): void {
+    this.tableSearchQuery = '';
+    this.isTableMenuOpen = true;
+    const selectedIndex = this.filteredTableLabels.indexOf(this.selectedTableLabel);
+    this.activeTableOptionIndex = selectedIndex >= 0 ? selectedIndex : -1;
   }
 
   onTableSearchFocus(): void {
@@ -347,6 +364,7 @@ export class AuditView implements OnInit, OnDestroy {
     this.isRecordFilterOpen = false;
     this.resetFilters();
     this.resetSorting();
+    this.documentTitle.setTitle(`${this.getTableDisplayName(tableLabel)} | Audit Frontend`);
     this.loadAuditRecords(tableLabel, 0, this.itemsPerPage);
   }
 
@@ -506,14 +524,10 @@ export class AuditView implements OnInit, OnDestroy {
   }
 
   getTableInitials(tableLabel: string): string {
-    const initialsByTable: Record<string, string> = {
-      'Holiday Calendar': 'HC',
-      'Loco Singapore': 'SG',
-      'Position Balance': 'PB',
-    };
+    const configuredInitials = this.tablePresentation[tableLabel]?.initials;
 
-    if (initialsByTable[tableLabel]) {
-      return initialsByTable[tableLabel];
+    if (configuredInitials) {
+      return configuredInitials;
     }
 
     return tableLabel
@@ -524,13 +538,7 @@ export class AuditView implements OnInit, OnDestroy {
   }
 
   getTableDisplayName(tableLabel: string): string {
-    const displayNames: Record<string, string> = {
-      'Holiday Calendar': 'Holiday Calendar',
-      'Loco Singapore': 'Singapore locomotives',
-      'Position Balance': 'Position balances',
-    };
-
-    return displayNames[tableLabel] ?? tableLabel;
+    return this.tablePresentation[tableLabel]?.displayName ?? tableLabel;
   }
 
   getCellValue(row: AuditViewRow, column: AuditViewColumn): AuditCellValue {

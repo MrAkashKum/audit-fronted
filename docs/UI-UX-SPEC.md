@@ -74,6 +74,7 @@ Requirements:
 - Selected option uses an olive surface, orange left accent, Current badge, and check mark.
 - Search filters both source labels and friendly display names case-insensitively.
 - Arrow Up/Down moves through results, Enter selects, and Escape closes the menu.
+- Non-empty search text exposes a keyboard-accessible clear action.
 - The count displays total available tables.
 
 ## State C: open filter builder

@@ -6,7 +6,7 @@ The implementation uses only the dependencies already declared in this project.
 
 ## Current capabilities
 
-- Searchable audit-table selector loaded from JSON.
+- Searchable, clearable audit-table selector loaded from `GET /api/v1/allTable`, with a local JSON fallback.
 - Empty initial state; records are never fetched before a table is selected.
 - Refresh resets the selected table, records, filters, expansion, and pagination.
 - Table-specific JSON sources for Holiday Calendar, Loco Singapore, and Position Balance.
@@ -20,6 +20,7 @@ The implementation uses only the dependencies already declared in this project.
 - Filters applied to the records on the current API page.
 - Dynamic pageNo, pageSize, totalElements, totalPages, and navigation controls.
 - Keyboard-operable table search with Arrow keys, Enter, and Escape.
+- Document titles follow the empty state and selected table.
 - Loading, empty, success, and error states.
 - Responsive dark audit-console design.
 - Unit and interaction tests using Angular's Vitest runner.
@@ -67,7 +68,7 @@ npm test -- --watch=false
 npm run build
 ```
 
-The current baseline is 16 passing tests and a warning-free production build.
+The current baseline is 17 passing tests and a warning-free production build.
 
 ## Routes
 
@@ -107,12 +108,12 @@ public/data/
 
 ## JSON source mapping
 
-| Selector label   | Source file                                     | Example records |
-| ---------------- | ----------------------------------------------- | --------------: |
-| Holiday Calendar | public/data/audit-records-holiday-calendar.json |               1 |
-| Loco Singapore   | public/data/audit-records-loco-singapore.json   |               3 |
-| Position Balance | public/data/audit-records.json                  |               2 |
-| Selector options | public/data/audit-table-labels.json             |        3 labels |
+| Selector label    | Source file                                     | Example records |
+| ----------------- | ----------------------------------------------- | --------------: |
+| Holiday Calendar  | public/data/audit-records-holiday-calendar.json |               1 |
+| Loco Singapore    | public/data/audit-records-loco-singapore.json   |               3 |
+| Position Balance  | public/data/audit-records.json                  |               2 |
+| Selector fallback | public/data/audit-table-labels.json             |        3 labels |
 
 See [Data contracts](docs/DATA-CONTRACTS.md) for the envelope, field matrix, and rules for adding another table.
 
@@ -166,12 +167,13 @@ The bundled data files are static fixtures. The service adapter slices their row
 
 ## Adding another audit table
 
-1. Add the label to public/data/audit-table-labels.json.
-2. Add a file named public/data/audit-records-{normalized-label}.json.
-3. Use the common response envelope documented in docs/DATA-CONTRACTS.md.
-4. Put current source fields inside originalData.
-5. Put revision snapshots inside auditHistory.
-6. Run tests and the production build.
+1. Return the label from `GET /api/v1/allTable`.
+2. Add the same label to public/data/audit-table-labels.json for offline/demo fallback behavior.
+3. Add a file named public/data/audit-records-{normalized-label}.json.
+4. Use the common response envelope documented in docs/DATA-CONTRACTS.md.
+5. Put current source fields inside originalData.
+6. Put revision snapshots inside auditHistory.
+7. Run tests and the production build.
 
 The service normalizes labels by lowercasing them and replacing non-alphanumeric groups with hyphens. Position Balance intentionally maps to the original audit-records.json file.
 

@@ -91,24 +91,30 @@ sequenceDiagram
     actor User
     participant View as AuditView
     participant Service as AuditService
-    participant API as JSON/API
+    participant Backend as Backend API
+    participant Fixtures as JSON fixtures
 
     View->>Service: getAuditTableLabels()
-    Service->>API: GET audit-table-labels
-    API-->>View: tableLabels
+    Service->>Backend: GET /api/v1/allTable
+    alt Backend succeeds
+        Backend-->>View: data.tableLabels
+    else Backend fails
+        Service->>Fixtures: GET /data/audit-table-labels.json
+        Fixtures-->>View: data.tableLabels
+    end
     Note over View: No record request yet
 
     User->>View: Select table
     View->>View: Reset filters, expansion, page 0
     View->>Service: getAuditRecordsForTable(label, 0, 10)
-    Service->>API: GET source?pageNo=0&pageSize=10
-    API-->>View: paginated audit response
+    Service->>Fixtures: GET source?pageNo=0&pageSize=10
+    Fixtures-->>View: paginated audit response
     View->>View: Derive main/history schemas
     View-->>User: Render records
 
     User->>View: Next page or change size
     View->>Service: getAuditRecordsForTable(label, pageNo, pageSize)
-    API-->>View: new page metadata and rows
+    Fixtures-->>View: new page metadata and rows
     View-->>User: Render requested page
 
     User->>View: Refresh

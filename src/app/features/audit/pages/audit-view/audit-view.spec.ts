@@ -232,6 +232,14 @@ describe('AuditView', () => {
 
     search.value = 'Singapore locomotives';
     search.dispatchEvent(new Event('input'));
+    expect(component.filteredTableLabels).toEqual(['Loco Singapore']);
+
+    component.clearTableSearch();
+    expect(component.tableSearchQuery).toBe('');
+    expect(component.filteredTableLabels).toHaveLength(3);
+
+    search.value = 'Singapore locomotives';
+    search.dispatchEvent(new Event('input'));
     search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
     search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await fixture.whenStable();
@@ -239,6 +247,7 @@ describe('AuditView', () => {
     expect(component.selectedTableLabel).toBe('Loco Singapore');
     expect(component.getTableInitials('Loco Singapore')).toBe('SG');
     expect(recordRequests.at(-1)?.tableLabel).toBe('Loco Singapore');
+    expect(document.title).toBe('Singapore locomotives | Audit Frontend');
   });
 
   it('sorts record fields in ascending, descending, and original order', async () => {
@@ -410,6 +419,7 @@ describe('AuditView', () => {
 
     expect(fixture.componentInstance.selectedTableLabel).toBe('');
     expect(fixture.componentInstance.filterConditions).toEqual([]);
+    expect(document.title).toBe('Audit tables | Audit Frontend');
     expect(element.querySelector('.empty-selection')?.textContent).toContain(
       'Choose an audit table',
     );

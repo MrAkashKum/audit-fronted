@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { catchError, map, Observable } from 'rxjs';
 
 import { AuditApiResponse } from '../models/audit-record.model';
 import { AuditTableLabelsApiResponse } from '../models/audit-table-label.model';
@@ -12,7 +12,8 @@ import { DynamicAuditApiResponse } from '../models/audit-view.model';
 export class AuditService {
   private readonly http = inject(HttpClient);
   private readonly auditApiUrl = 'data/audit-records.json';
-  private readonly auditTableLabelsApiUrl = 'data/audit-table-labels.json';
+  private readonly auditTableLabelsApiUrl = '/api/v1/allTable';
+  private readonly auditTableLabelsFallbackUrl = 'data/audit-table-labels.json';
 
   getAuditRecords(): Observable<AuditApiResponse> {
     return this.http.get<AuditApiResponse>(this.auditApiUrl);
@@ -36,7 +37,13 @@ export class AuditService {
   }
 
   getAuditTableLabels(): Observable<AuditTableLabelsApiResponse> {
-    return this.http.get<AuditTableLabelsApiResponse>(this.auditTableLabelsApiUrl);
+    return this.http
+      .get<AuditTableLabelsApiResponse>(this.auditTableLabelsApiUrl)
+      .pipe(
+        catchError(() =>
+          this.http.get<AuditTableLabelsApiResponse>(this.auditTableLabelsFallbackUrl),
+        ),
+      );
   }
 
   private toFileSlug(tableLabel: string): string {
