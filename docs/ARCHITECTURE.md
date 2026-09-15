@@ -30,12 +30,12 @@ Owns presentation and page interaction state:
 - Table-search text and menu state.
 - Records response and derived view rows.
 - Main/history presentation columns.
-- Filter conditions and match mode.
+- Filter conditions and their independent AND/OR joins.
 - Expanded row IDs.
 - Current page and page size.
 - Loading and failure messages.
 
-It subscribes explicitly to service Observables and unsubscribes from an earlier records request before starting another.
+It subscribes explicitly to service Observables, marks the zoneless Angular view for checking after asynchronous success/failure, and unsubscribes from an earlier records request before starting another.
 
 ### AuditService
 
@@ -106,20 +106,24 @@ sequenceDiagram
 
     User->>View: Select table
     View->>View: Reset filters, expansion, page 0
-    View->>Service: getAuditRecordsForTable(label, 0, 10)
-    Service->>Fixtures: GET source?pageNo=0&pageSize=10
-    Fixtures-->>View: paginated audit response
+    View->>Service: getAuditRecordsForTable(label, 0, pageSize)
+    Service->>Backend: GET /api/v1/{encodedLabel}?pageNo=0&pageSize=pageSize
+    alt Backend succeeds
+        Backend-->>View: paginated audit response
+    else Backend fails
+        Service->>Fixtures: GET matching JSON fixture
+        Fixtures-->>View: locally paged fallback response
+    end
     View->>View: Derive main/history schemas
     View-->>User: Render records
 
     User->>View: Next page or change size
     View->>Service: getAuditRecordsForTable(label, pageNo, pageSize)
-    Fixtures-->>View: new page metadata and rows
+    Backend-->>View: new page metadata and rows (or fixture fallback)
     View-->>User: Render requested page
 
     User->>View: Refresh
     View->>View: Clear selected context
-    View->>Service: getAuditTableLabels()
     View-->>User: Choose an audit table
 ```
 
@@ -141,7 +145,7 @@ Algorithm:
 
 ### History schema
 
-Input: every auditHistory entry from current response rows.
+Input: every auditHistory entry for the expanded record.
 
 The algorithm is similar, but it uses a different exclusion set. This allows history snapshots to contain extra fields without changing the main table.
 
@@ -171,12 +175,13 @@ flowchart LR
     Complete -->|No| Ignore[Ignore condition]
     Complete -->|Yes| Type[Resolve inferred field type]
     Type --> Compare[Typed comparison]
-    Compare --> Join{Match mode}
-    Join -->|AND| Every[Every complete condition]
-    Join -->|OR| Any[Any complete condition]
-    Every --> Visible[Visible page rows]
-    Any --> Visible
+    Compare --> Join[Read each rule's preceding join]
+    Join --> Groups[Evaluate contiguous AND groups]
+    Groups --> Any[Any OR-separated group matches]
+    Any --> Visible[Visible page rows]
 ```
+
+The first complete rule starts an AND group. A later AND rule extends that group; a later OR rule starts another group. The row is visible when any completed group matches, giving AND standard precedence over OR.
 
 Values are compared as:
 
@@ -198,17 +203,17 @@ For a real API, the response is authoritative for:
 - hasPrevious.
 - hasNext.
 
-The component calculates only button targets and the visible range. The current service includes a fixture-only adapter that slices static JSON rows and returns consistent page metadata for the requested pageNo/pageSize. Remove that adapter when a production backend performs server-side paging.
+The component calculates only button targets and the visible range. The service treats a successful backend response as authoritative. Its fallback adapter slices static JSON rows and returns consistent page metadata only when the backend request fails.
 
 ## State reset boundaries
 
-| Event                   | Filters  | Expansion | Page           | Selection |
-| ----------------------- | -------- | --------- | -------------- | --------- |
-| Open/close filter panel | Preserve | Preserve  | Preserve       | Preserve  |
-| Page navigation         | Preserve | Clear     | Requested page | Preserve  |
-| Page-size change        | Preserve | Clear     | Reset to 0     | Preserve  |
-| Change table            | Clear    | Clear     | Reset to 0/10  | Replace   |
-| Refresh                 | Clear    | Clear     | Reset to 0/10  | Clear     |
+| Event                   | Filters  | Expansion | Page              | Selection |
+| ----------------------- | -------- | --------- | ----------------- | --------- |
+| Open/close filter panel | Preserve | Preserve  | Preserve          | Preserve  |
+| Page navigation         | Preserve | Clear     | Requested page    | Preserve  |
+| Page-size change        | Preserve | Clear     | Reset to 0        | Preserve  |
+| Change table            | Clear    | Clear     | Page 0, keep size | Replace   |
+| Refresh                 | Clear    | Clear     | Page 0, keep size | Clear     |
 
 ## Routing and bundles
 
@@ -220,7 +225,7 @@ This keeps the main bundle independent from feature templates and styles until /
 
 ### Real backend
 
-Replace fixture URLs in AuditService with the production endpoint while preserving the Observable response type. If one endpoint handles every table, pass the selected table as a route segment or query parameter.
+`AuditService` already requests the production-style `/api/v1/{encodedTableLabel}` endpoint and falls back to fixtures. Configure the deployment proxy/origin for `/api/v1`; the component and response models remain unchanged.
 
 ### Backend schema metadata
 

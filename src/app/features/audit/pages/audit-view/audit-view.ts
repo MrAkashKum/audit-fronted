@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 
@@ -30,6 +30,7 @@ const SORT_RECORD_STATE = '__RECORD_STATE__';
 })
 export class AuditView implements OnInit, OnDestroy {
   private readonly auditService = inject(AuditService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly documentTitle = inject(Title);
   private auditRecordsSubscription?: Subscription;
   private tableLabelsSubscription?: Subscription;
@@ -68,58 +69,37 @@ export class AuditView implements OnInit, OnDestroy {
     'Loco Singapore': { displayName: 'Singapore locomotives', initials: 'SG' },
     'Position Balance': { displayName: 'Position balances', initials: 'PB' },
   };
-  private readonly operatorsByType: Record<AuditFieldType, AuditFilterOperatorOption[]> = {
-    text: [
-      { value: 'contains', label: 'Contains' },
-      { value: 'notContains', label: 'Does not contain' },
-      { value: 'equals', label: 'Equals' },
-      { value: 'notEquals', label: 'Does not equal' },
-      { value: 'startsWith', label: 'Starts with' },
-      { value: 'endsWith', label: 'Ends with' },
-      { value: 'isEmpty', label: 'Is empty' },
-      { value: 'isNotEmpty', label: 'Is not empty' },
-    ],
-    number: [
-      { value: 'equals', label: 'Equals' },
-      { value: 'notEquals', label: 'Does not equal' },
-      { value: 'greaterThan', label: 'Greater than' },
-      { value: 'greaterThanOrEqual', label: 'Greater than or equal' },
-      { value: 'lessThan', label: 'Less than' },
-      { value: 'lessThanOrEqual', label: 'Less than or equal' },
-      { value: 'isEmpty', label: 'Is empty' },
-      { value: 'isNotEmpty', label: 'Is not empty' },
-    ],
-    date: [
-      { value: 'equals', label: 'On' },
-      { value: 'before', label: 'Before' },
-      { value: 'after', label: 'After' },
-      { value: 'isEmpty', label: 'Is empty' },
-      { value: 'isNotEmpty', label: 'Is not empty' },
-    ],
-    boolean: [
-      { value: 'equals', label: 'Equals' },
-      { value: 'notEquals', label: 'Does not equal' },
-      { value: 'isEmpty', label: 'Is empty' },
-      { value: 'isNotEmpty', label: 'Is not empty' },
-    ],
-  };
+  private readonly filterOperators: AuditFilterOperatorOption[] = [
+    { value: 'contains', label: 'Contains' },
+    { value: 'equals', label: 'Equals' },
+    { value: 'notEquals', label: 'Not equals' },
+    { value: 'startsWith', label: 'Starts with' },
+    { value: 'greaterThan', label: 'Greater than' },
+    { value: 'greaterThanOrEqual', label: 'Greater than or equal' },
+    { value: 'lessThan', label: 'Less than' },
+    { value: 'lessThanOrEqual', label: 'Less than or equal' },
+    { value: 'isEmpty', label: 'Is empty' },
+    { value: 'isNotEmpty', label: 'Is not empty' },
+  ];
 
   recordsResponse: DynamicAuditApiResponse | null = null;
   tableLabelsResponse: AuditTableLabelsApiResponse | null = null;
   rows: AuditViewRow[] = [];
   columns: AuditViewColumn[] = [];
-  historyColumns: AuditViewColumn[] = [];
   tableLabels: string[] = [];
   filterConditions: AuditFilterCondition[] = [];
   selectedTableLabel = '';
   tableSearchQuery = '';
-  filterMatch: AuditFilterMatch = 'AND';
   sortKey = '';
   sortDirection: AuditSortDirection = '';
   itemsPerPage = 10;
   currentPageNo = 0;
   isTableMenuOpen = false;
   activeTableOptionIndex = -1;
+  openFieldConditionId: number | null = null;
+  activeFieldOptionIndex = -1;
+  openOperatorConditionId: number | null = null;
+  activeOperatorOptionIndex = -1;
   isRecordFilterOpen = false;
   isRecordsLoading = false;
   areTableLabelsLoading = true;
@@ -148,8 +128,20 @@ export class AuditView implements OnInit, OnDestroy {
     return [{ key: 'ID', label: 'ID', dataType: idType }, ...this.columns];
   }
 
+  get filterFieldOptions(): AuditViewColumn[] {
+    return [{ key: '', label: 'Field', dataType: 'text' }, ...this.filterFields];
+  }
+
   get activeFilterCount(): number {
     return this.filterConditions.filter((condition) => this.isConditionComplete(condition)).length;
+  }
+
+  get totalRecordCount(): number {
+    return this.recordsResponse?.data.totalElements ?? this.rows.length;
+  }
+
+  get totalRecordLabel(): string {
+    return this.totalRecordCount === 1 ? 'Total record' : 'Total records';
   }
 
   get filteredRows(): AuditViewRow[] {
@@ -160,12 +152,7 @@ export class AuditView implements OnInit, OnDestroy {
     const matchingRows =
       activeConditions.length === 0
         ? this.rows
-        : this.rows.filter((row) => {
-            const matches = activeConditions.map((condition) =>
-              this.matchesCondition(row, condition),
-            );
-            return this.filterMatch === 'AND' ? matches.every(Boolean) : matches.some(Boolean);
-          });
+        : this.rows.filter((row) => this.matchesFilterExpression(row, activeConditions));
 
     return this.sortRows(matchingRows);
   }
@@ -209,6 +196,7 @@ export class AuditView implements OnInit, OnDestroy {
         this.tableLabelsResponse = response;
         this.tableLabels = response.data.tableLabels;
         this.areTableLabelsLoading = false;
+        this.changeDetector.markForCheck();
       },
       error: (error: unknown) => {
         console.error('Unable to load audit table labels.', error);
@@ -216,6 +204,7 @@ export class AuditView implements OnInit, OnDestroy {
         this.tableLabels = [];
         this.tableLabelsErrorMessage = 'Unable to load audit tables.';
         this.areTableLabelsLoading = false;
+        this.changeDetector.markForCheck();
       },
     });
   }
@@ -242,23 +231,24 @@ export class AuditView implements OnInit, OnDestroy {
           this.currentPageNo = response.data.pageNo;
           this.itemsPerPage = response.data.pageSize;
           this.columns = this.createColumns(response.data.rows, 'originalData');
-          this.historyColumns = this.createColumns(response.data.rows, 'auditHistory');
           this.rows = response.data.rows.map((record) => this.toViewRow(record));
           this.isRecordsLoading = false;
+          this.changeDetector.markForCheck();
         },
         error: (error: unknown) => {
           console.error('Unable to load audit records for ' + tableLabel + '.', error);
           this.recordsResponse = null;
           this.rows = [];
           this.columns = [];
-          this.historyColumns = [];
           this.recordsErrorMessage = 'Unable to load records for ' + tableLabel + '.';
           this.isRecordsLoading = false;
+          this.changeDetector.markForCheck();
         },
       });
   }
 
   refresh(): void {
+    const shouldReloadTableLabels = this.tableLabels.length === 0;
     this.auditRecordsSubscription?.unsubscribe();
     this.selectedTableLabel = '';
     this.tableSearchQuery = '';
@@ -266,17 +256,19 @@ export class AuditView implements OnInit, OnDestroy {
     this.activeTableOptionIndex = -1;
     this.isRecordFilterOpen = false;
     this.currentPageNo = 0;
-    this.itemsPerPage = 10;
+    this.isRecordsLoading = false;
     this.recordsResponse = null;
     this.rows = [];
     this.columns = [];
-    this.historyColumns = [];
     this.recordsErrorMessage = '';
     this.expandedRowIds.clear();
     this.resetFilters();
     this.resetSorting();
     this.documentTitle.setTitle(this.defaultDocumentTitle);
-    this.loadTableLabels();
+
+    if (shouldReloadTableLabels) {
+      this.loadTableLabels();
+    }
   }
 
   onTableSearch(event: Event): void {
@@ -360,7 +352,6 @@ export class AuditView implements OnInit, OnDestroy {
     this.isTableMenuOpen = false;
     this.activeTableOptionIndex = -1;
     this.currentPageNo = 0;
-    this.itemsPerPage = 10;
     this.isRecordFilterOpen = false;
     this.resetFilters();
     this.resetSorting();
@@ -381,6 +372,7 @@ export class AuditView implements OnInit, OnDestroy {
       ...this.filterConditions,
       {
         id: this.nextFilterId++,
+        join: 'AND',
         fieldKey: '',
         operator: 'contains',
         value: '',
@@ -389,6 +381,14 @@ export class AuditView implements OnInit, OnDestroy {
   }
 
   removeFilterCondition(conditionId: number): void {
+    if (this.openFieldConditionId === conditionId) {
+      this.closeFilterFieldMenu();
+    }
+
+    if (this.openOperatorConditionId === conditionId) {
+      this.closeFilterOperatorMenu();
+    }
+
     this.filterConditions = this.filterConditions.filter(
       (condition) => condition.id !== conditionId,
     );
@@ -406,26 +406,200 @@ export class AuditView implements OnInit, OnDestroy {
     }
   }
 
-  onFilterMatchChange(event: Event): void {
-    this.filterMatch = (event.target as HTMLSelectElement).value as AuditFilterMatch;
+  setFilterConditionJoin(condition: AuditFilterCondition, join: AuditFilterMatch): void {
+    condition.join = join;
   }
 
-  onFilterFieldChange(condition: AuditFilterCondition, event: Event): void {
-    condition.fieldKey = (event.target as HTMLSelectElement).value;
-    condition.value = '';
-    condition.operator = this.getOperatorOptions(condition)[0]?.value ?? 'contains';
+  toggleFilterFieldMenu(condition: AuditFilterCondition): void {
+    if (this.openFieldConditionId === condition.id) {
+      this.closeFilterFieldMenu();
+      return;
+    }
+
+    this.closeFilterOperatorMenu();
+    this.openFieldConditionId = condition.id;
+    this.activeFieldOptionIndex = Math.max(
+      this.filterFieldOptions.findIndex((field) => field.key === condition.fieldKey),
+      0,
+    );
   }
 
-  onFilterOperatorChange(condition: AuditFilterCondition, event: Event): void {
-    condition.operator = (event.target as HTMLSelectElement).value as AuditFilterOperator;
+  isFilterFieldMenuOpen(conditionId: number): boolean {
+    return this.openFieldConditionId === conditionId;
+  }
+
+  selectFilterField(
+    condition: AuditFilterCondition,
+    fieldKey: string,
+    trigger?: HTMLButtonElement,
+  ): void {
+    condition.fieldKey = fieldKey;
+    this.closeFilterFieldMenu();
+    queueMicrotask(() => trigger?.focus());
+  }
+
+  setActiveFilterField(index: number): void {
+    this.activeFieldOptionIndex = index;
+  }
+
+  onFilterFieldKeydown(
+    condition: AuditFilterCondition,
+    event: KeyboardEvent,
+    trigger: HTMLButtonElement,
+  ): void {
+    const isOpen = this.isFilterFieldMenuOpen(condition.id);
+
+    if (event.key === 'Escape' && isOpen) {
+      event.preventDefault();
+      this.closeFilterFieldMenu();
+      return;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+
+      if (!isOpen) {
+        this.toggleFilterFieldMenu(condition);
+        return;
+      }
+
+      const offset = event.key === 'ArrowDown' ? 1 : -1;
+      this.activeFieldOptionIndex =
+        (this.activeFieldOptionIndex + offset + this.filterFieldOptions.length) %
+        this.filterFieldOptions.length;
+      return;
+    }
+
+    if ((event.key === 'Enter' || event.key === ' ') && isOpen) {
+      event.preventDefault();
+      const activeField = this.filterFieldOptions[this.activeFieldOptionIndex];
+
+      if (activeField) {
+        this.selectFilterField(condition, activeField.key, trigger);
+      }
+    }
+  }
+
+  onFilterFieldFocusOut(conditionId: number, event: FocusEvent): void {
+    const menu = event.currentTarget as HTMLElement;
+    const nextTarget = event.relatedTarget;
+
+    if (
+      this.openFieldConditionId === conditionId &&
+      (!(nextTarget instanceof Node) || !menu.contains(nextTarget))
+    ) {
+      this.closeFilterFieldMenu();
+    }
+  }
+
+  getFilterFieldLabel(fieldKey: string): string {
+    return this.filterFieldOptions.find((field) => field.key === fieldKey)?.label ?? 'Field';
+  }
+
+  getActiveFilterFieldOptionId(conditionId: number): string | null {
+    return this.isFilterFieldMenuOpen(conditionId) && this.activeFieldOptionIndex >= 0
+      ? `filter-field-${conditionId}-${this.activeFieldOptionIndex}`
+      : null;
+  }
+
+  toggleFilterOperatorMenu(condition: AuditFilterCondition): void {
+    if (this.openOperatorConditionId === condition.id) {
+      this.closeFilterOperatorMenu();
+      return;
+    }
+
+    this.closeFilterFieldMenu();
+    this.openOperatorConditionId = condition.id;
+    this.activeOperatorOptionIndex = Math.max(
+      this.filterOperators.findIndex((option) => option.value === condition.operator),
+      0,
+    );
+  }
+
+  isFilterOperatorMenuOpen(conditionId: number): boolean {
+    return this.openOperatorConditionId === conditionId;
+  }
+
+  selectFilterOperator(
+    condition: AuditFilterCondition,
+    operator: AuditFilterOperator,
+    trigger?: HTMLButtonElement,
+  ): void {
+    condition.operator = operator;
+    this.closeFilterOperatorMenu();
+    queueMicrotask(() => trigger?.focus());
+  }
+
+  setActiveFilterOperator(index: number): void {
+    this.activeOperatorOptionIndex = index;
+  }
+
+  onFilterOperatorKeydown(
+    condition: AuditFilterCondition,
+    event: KeyboardEvent,
+    trigger: HTMLButtonElement,
+  ): void {
+    const isOpen = this.isFilterOperatorMenuOpen(condition.id);
+
+    if (event.key === 'Escape' && isOpen) {
+      event.preventDefault();
+      this.closeFilterOperatorMenu();
+      return;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+
+      if (!isOpen) {
+        this.toggleFilterOperatorMenu(condition);
+        return;
+      }
+
+      const offset = event.key === 'ArrowDown' ? 1 : -1;
+      this.activeOperatorOptionIndex =
+        (this.activeOperatorOptionIndex + offset + this.filterOperators.length) %
+        this.filterOperators.length;
+      return;
+    }
+
+    if ((event.key === 'Enter' || event.key === ' ') && isOpen) {
+      event.preventDefault();
+      const activeOperator = this.filterOperators[this.activeOperatorOptionIndex];
+
+      if (activeOperator) {
+        this.selectFilterOperator(condition, activeOperator.value, trigger);
+      }
+    }
+  }
+
+  onFilterOperatorFocusOut(conditionId: number, event: FocusEvent): void {
+    const menu = event.currentTarget as HTMLElement;
+    const nextTarget = event.relatedTarget;
+
+    if (
+      this.openOperatorConditionId === conditionId &&
+      (!(nextTarget instanceof Node) || !menu.contains(nextTarget))
+    ) {
+      this.closeFilterOperatorMenu();
+    }
+  }
+
+  getFilterOperatorLabel(operator: AuditFilterOperator): string {
+    return this.filterOperators.find((option) => option.value === operator)?.label ?? 'Condition';
+  }
+
+  getActiveFilterOperatorOptionId(conditionId: number): string | null {
+    return this.isFilterOperatorMenuOpen(conditionId) && this.activeOperatorOptionIndex >= 0
+      ? `filter-operator-${conditionId}-${this.activeOperatorOptionIndex}`
+      : null;
   }
 
   onFilterValueChange(condition: AuditFilterCondition, event: Event): void {
     condition.value = (event.target as HTMLInputElement | HTMLSelectElement).value;
   }
 
-  getOperatorOptions(condition: AuditFilterCondition): AuditFilterOperatorOption[] {
-    return this.operatorsByType[this.getFilterFieldType(condition.fieldKey)];
+  getOperatorOptions(): AuditFilterOperatorOption[] {
+    return this.filterOperators;
   }
 
   getFilterInputType(condition: AuditFilterCondition): 'text' | 'number' | 'date' {
@@ -507,7 +681,7 @@ export class AuditView implements OnInit, OnDestroy {
   }
 
   canExpandRow(row: AuditViewRow): boolean {
-    return row.auditHistory.length > 1;
+    return row.revisionCount > 1 && row.auditHistory.length > 0;
   }
 
   toggleRow(rowId: string | number): void {
@@ -516,6 +690,7 @@ export class AuditView implements OnInit, OnDestroy {
       return;
     }
 
+    this.expandedRowIds.clear();
     this.expandedRowIds.add(rowId);
   }
 
@@ -583,8 +758,19 @@ export class AuditView implements OnInit, OnDestroy {
 
   private resetFilters(): void {
     this.filterConditions = [];
-    this.filterMatch = 'AND';
     this.nextFilterId = 1;
+    this.closeFilterFieldMenu();
+    this.closeFilterOperatorMenu();
+  }
+
+  private closeFilterFieldMenu(): void {
+    this.openFieldConditionId = null;
+    this.activeFieldOptionIndex = -1;
+  }
+
+  private closeFilterOperatorMenu(): void {
+    this.openOperatorConditionId = null;
+    this.activeOperatorOptionIndex = -1;
   }
 
   private resetSorting(): void {
@@ -659,7 +845,10 @@ export class AuditView implements OnInit, OnDestroy {
 
   private matchesCondition(row: AuditViewRow, condition: AuditFilterCondition): boolean {
     const sourceValue = condition.fieldKey === 'ID' ? row.id : row.values[condition.fieldKey];
-    const isEmpty = sourceValue === null || sourceValue === undefined || sourceValue === '';
+    const sourceText = sourceValue === null || sourceValue === undefined ? '' : String(sourceValue);
+    const normalizedSource = sourceText.trim();
+    const normalizedFilter = condition.value.trim();
+    const isEmpty = normalizedSource.length === 0;
 
     if (condition.operator === 'isEmpty') {
       return isEmpty;
@@ -673,74 +862,103 @@ export class AuditView implements OnInit, OnDestroy {
       return false;
     }
 
+    const comparableSource = normalizedSource.toLocaleLowerCase();
+    const comparableFilter = normalizedFilter.toLocaleLowerCase();
     const fieldType = this.getFilterFieldType(condition.fieldKey);
-    const filterValue = condition.value.trim();
-
-    if (fieldType === 'number') {
-      return this.compareNumbers(Number(sourceValue), Number(filterValue), condition.operator);
-    }
-
-    if (fieldType === 'date') {
-      const sourceDate = String(sourceValue).slice(0, 10);
-      const targetDate = filterValue.slice(0, 10);
-      return this.compareNumbers(
-        Date.parse(sourceDate),
-        Date.parse(targetDate),
-        condition.operator,
-      );
-    }
-
-    if (fieldType === 'boolean') {
-      const sourceBoolean = String(sourceValue).toLocaleLowerCase() === 'true';
-      const filterBoolean = filterValue === 'true';
-      return condition.operator === 'notEquals'
-        ? sourceBoolean !== filterBoolean
-        : sourceBoolean === filterBoolean;
-    }
-
-    const sourceText = String(sourceValue).toLocaleLowerCase();
-    const targetText = filterValue.toLocaleLowerCase();
 
     switch (condition.operator) {
       case 'contains':
-        return sourceText.includes(targetText);
-      case 'notContains':
-        return !sourceText.includes(targetText);
+        return comparableSource.includes(comparableFilter);
       case 'startsWith':
-        return sourceText.startsWith(targetText);
-      case 'endsWith':
-        return sourceText.endsWith(targetText);
+        return comparableSource.startsWith(comparableFilter);
+      case 'equals':
+        return this.areFilterValuesEqual(normalizedSource, normalizedFilter, fieldType);
       case 'notEquals':
-        return sourceText !== targetText;
+        return !this.areFilterValuesEqual(normalizedSource, normalizedFilter, fieldType);
+      case 'greaterThan':
+      case 'greaterThanOrEqual':
+      case 'lessThan':
+      case 'lessThanOrEqual':
+        return this.compareOrderedValues(normalizedSource, normalizedFilter, condition.operator);
       default:
-        return sourceText === targetText;
+        return false;
     }
   }
 
-  private compareNumbers(
-    sourceValue: number,
-    filterValue: number,
-    operator: AuditFilterOperator,
+  private matchesFilterExpression(row: AuditViewRow, conditions: AuditFilterCondition[]): boolean {
+    let currentAndGroupMatches = this.matchesCondition(row, conditions[0]);
+    let completedOrGroupMatches = false;
+
+    for (const condition of conditions.slice(1)) {
+      const conditionMatches = this.matchesCondition(row, condition);
+
+      if (condition.join === 'OR') {
+        completedOrGroupMatches ||= currentAndGroupMatches;
+        currentAndGroupMatches = conditionMatches;
+      } else {
+        currentAndGroupMatches &&= conditionMatches;
+      }
+    }
+
+    return completedOrGroupMatches || currentAndGroupMatches;
+  }
+
+  private areFilterValuesEqual(
+    sourceValue: string,
+    filterValue: string,
+    fieldType: AuditFieldType,
   ): boolean {
-    if (!Number.isFinite(sourceValue) || !Number.isFinite(filterValue)) {
-      return false;
+    if (fieldType === 'number') {
+      return Number(sourceValue) === Number(filterValue);
+    }
+
+    if (fieldType === 'date') {
+      return sourceValue.slice(0, 10) === filterValue.slice(0, 10);
+    }
+
+    return sourceValue.toLocaleLowerCase() === filterValue.toLocaleLowerCase();
+  }
+
+  private compareOrderedValues(
+    sourceValue: string,
+    filterValue: string,
+    operator: Extract<
+      AuditFilterOperator,
+      'greaterThan' | 'greaterThanOrEqual' | 'lessThan' | 'lessThanOrEqual'
+    >,
+  ): boolean {
+    const sourceNumber = Number(sourceValue);
+    const filterNumber = Number(filterValue);
+    let comparison: number;
+
+    if (Number.isFinite(sourceNumber) && Number.isFinite(filterNumber)) {
+      comparison = sourceNumber - filterNumber;
+    } else if (/^\d{4}-\d{2}-\d{2}/.test(sourceValue) && /^\d{4}-\d{2}-\d{2}/.test(filterValue)) {
+      const sourceDate = Date.parse(sourceValue);
+      const filterDate = Date.parse(filterValue);
+      comparison =
+        Number.isFinite(sourceDate) && Number.isFinite(filterDate)
+          ? sourceDate - filterDate
+          : sourceValue.localeCompare(filterValue, undefined, {
+              numeric: true,
+              sensitivity: 'base',
+            });
+    } else {
+      comparison = sourceValue.localeCompare(filterValue, undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
     }
 
     switch (operator) {
-      case 'notEquals':
-        return sourceValue !== filterValue;
       case 'greaterThan':
-      case 'after':
-        return sourceValue > filterValue;
+        return comparison > 0;
       case 'greaterThanOrEqual':
-        return sourceValue >= filterValue;
+        return comparison >= 0;
       case 'lessThan':
-      case 'before':
-        return sourceValue < filterValue;
-      case 'lessThanOrEqual':
-        return sourceValue <= filterValue;
+        return comparison < 0;
       default:
-        return sourceValue === filterValue;
+        return comparison <= 0;
     }
   }
 
@@ -751,6 +969,7 @@ export class AuditView implements OnInit, OnDestroy {
       revisionCount: record.changeSummary.totalRevisions,
       recordState: record.originalRecordPresent ? 'Current' : 'Audit only',
       auditHistory: record.auditHistory,
+      historyColumns: this.createColumns([record], 'auditHistory'),
     };
   }
 
@@ -781,7 +1000,10 @@ export class AuditView implements OnInit, OnDestroy {
 
     return Array.from(keys, (key) => ({
       key,
-      label: this.columnLabelOverrides[key] ?? this.toColumnLabel(key),
+      label:
+        source === 'originalData'
+          ? (this.columnLabelOverrides[key] ?? this.toColumnLabel(key))
+          : this.toColumnLabel(key),
       dataType: this.inferColumnType(key, records, source),
     }));
   }

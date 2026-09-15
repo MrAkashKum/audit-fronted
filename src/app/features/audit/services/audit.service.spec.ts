@@ -33,10 +33,13 @@ describe('AuditService', () => {
     expect(responseStatus).toBe('SUCCESS');
   });
 
-  it('loads the searchable table labels from the allTable API', () => {
+  it('returns a cold observable for the allTable API request', () => {
     let tableLabels: string[] = [];
+    const labelsResponse$ = service.getAuditTableLabels();
 
-    service.getAuditTableLabels().subscribe((response) => {
+    httpTesting.expectNone('/api/v1/allTable');
+
+    labelsResponse$.subscribe((response) => {
       tableLabels = response.data.tableLabels;
     });
 
@@ -75,23 +78,40 @@ describe('AuditService', () => {
     expect(tableLabels).toHaveLength(3);
   });
 
-  it('selects a table-specific audit JSON source', () => {
-    service.getAuditRecordsForTable('Holiday Calendar', 2, 25).subscribe();
+  it('requests records from the encoded table API with paging parameters', () => {
+    let returnedTotalElements = 0;
+
+    service.getAuditRecordsForTable('Holiday Calendar', 2, 25).subscribe((response) => {
+      returnedTotalElements = response.data.totalElements;
+    });
 
     const request = httpTesting.expectOne(
-      (candidate) => candidate.url === 'data/audit-records-holiday-calendar.json',
+      (candidate) => candidate.url === '/api/v1/Holiday%20Calendar',
     );
     expect(request.request.method).toBe('GET');
     expect(request.request.params.get('pageNo')).toBe('2');
     expect(request.request.params.get('pageSize')).toBe('25');
-    request.flush({ data: { rows: [] } });
+    request.flush({
+      data: {
+        pageNo: 2,
+        pageSize: 25,
+        numberOfElements: 0,
+        totalElements: 75,
+        totalPages: 3,
+        hasPrevious: true,
+        hasNext: false,
+        rows: [],
+      },
+    });
+
+    expect(returnedTotalElements).toBe(75);
   });
 
-  it('uses the original audit JSON for Position Balance', () => {
+  it('uses the raw encoded label for the Position Balance API', () => {
     service.getAuditRecordsForTable('Position Balance').subscribe();
 
     const request = httpTesting.expectOne(
-      (candidate) => candidate.url === 'data/audit-records.json',
+      (candidate) => candidate.url === '/api/v1/Position%20Balance',
     );
     expect(request.request.method).toBe('GET');
     expect(request.request.params.get('pageNo')).toBe('0');
@@ -110,10 +130,20 @@ describe('AuditService', () => {
       rowIds = response.data.rows.map((row) => Number(row.id));
     });
 
-    const request = httpTesting.expectOne(
+    const apiRequest = httpTesting.expectOne(
+      (candidate) => candidate.url === '/api/v1/Position%20Balance',
+    );
+    apiRequest.flush('Unable to load records', {
+      status: 500,
+      statusText: 'Server Error',
+    });
+
+    const fixtureRequest = httpTesting.expectOne(
       (candidate) => candidate.url === 'data/audit-records.json',
     );
-    request.flush({
+    expect(fixtureRequest.request.params.get('pageNo')).toBe('1');
+    expect(fixtureRequest.request.params.get('pageSize')).toBe('2');
+    fixtureRequest.flush({
       timestamp: '2026-09-14T09:25:00Z',
       status: 'SUCCESS',
       code: '2000',
@@ -137,5 +167,51 @@ describe('AuditService', () => {
     expect(pageNo).toBe(1);
     expect(pageSize).toBe(2);
     expect(rowIds).toEqual([1003]);
+  });
+
+  it('normalizes invalid pagination before requesting API and demo records', () => {
+    let responsePageNo = -1;
+    let responsePageSize = -1;
+
+    service.getAuditRecordsForTable('Holiday Calendar', -4, 0.5).subscribe((response) => {
+      responsePageNo = response.data.pageNo;
+      responsePageSize = response.data.pageSize;
+    });
+
+    const apiRequest = httpTesting.expectOne(
+      (candidate) => candidate.url === '/api/v1/Holiday%20Calendar',
+    );
+    expect(apiRequest.request.params.get('pageNo')).toBe('0');
+    expect(apiRequest.request.params.get('pageSize')).toBe('10');
+    apiRequest.flush('Unable to load records', {
+      status: 500,
+      statusText: 'Server Error',
+    });
+
+    const fixtureRequest = httpTesting.expectOne(
+      (candidate) => candidate.url === 'data/audit-records-holiday-calendar.json',
+    );
+    expect(fixtureRequest.request.params.get('pageNo')).toBe('0');
+    expect(fixtureRequest.request.params.get('pageSize')).toBe('10');
+
+    fixtureRequest.flush({
+      timestamp: '2026-09-14T09:25:00Z',
+      status: 'SUCCESS',
+      code: '2000',
+      message: 'Request completed successfully',
+      data: {
+        pageNo: 0,
+        pageSize: 10,
+        numberOfElements: 0,
+        totalElements: 0,
+        totalPages: 0,
+        hasPrevious: false,
+        hasNext: false,
+        rows: [],
+      },
+    });
+
+    expect(responsePageNo).toBe(0);
+    expect(responsePageSize).toBe(10);
   });
 });

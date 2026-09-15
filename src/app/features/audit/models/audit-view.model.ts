@@ -5,17 +5,13 @@ export type AuditFieldType = 'text' | 'number' | 'date' | 'boolean';
 export type AuditFilterMatch = 'AND' | 'OR';
 export type AuditFilterOperator =
   | 'contains'
-  | 'notContains'
   | 'startsWith'
-  | 'endsWith'
   | 'equals'
   | 'notEquals'
   | 'greaterThan'
   | 'greaterThanOrEqual'
   | 'lessThan'
   | 'lessThanOrEqual'
-  | 'before'
-  | 'after'
   | 'isEmpty'
   | 'isNotEmpty';
 
@@ -71,6 +67,7 @@ export interface AuditViewColumn {
 
 export interface AuditFilterCondition {
   id: number;
+  join: AuditFilterMatch;
   fieldKey: string;
   operator: AuditFilterOperator;
   value: string;
@@ -87,4 +84,5 @@ export interface AuditViewRow {
   revisionCount: number;
   recordState: AuditRecordState;
   auditHistory: DynamicAuditHistoryEntry[];
+  historyColumns: AuditViewColumn[];
 }

@@ -1,5 +1,6 @@
+import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Observable, of, Subject } from 'rxjs';
 
 import { AuditTableLabelsApiResponse } from '../../models/audit-table-label.model';
 import { AuditFilterCondition, DynamicAuditApiResponse } from '../../models/audit-view.model';
@@ -121,13 +122,18 @@ const labelsResponse: AuditTableLabelsApiResponse = {
 
 describe('AuditView', () => {
   let recordRequests: AuditRecordRequest[];
+  let recordsResponseOverride: Observable<DynamicAuditApiResponse> | null;
+  let labelsResponseOverride: Observable<AuditTableLabelsApiResponse> | null;
 
   beforeEach(async () => {
     recordRequests = [];
+    recordsResponseOverride = null;
+    labelsResponseOverride = null;
 
     await TestBed.configureTestingModule({
       imports: [AuditView],
       providers: [
+        provideZonelessChangeDetection(),
         {
           provide: AuditService,
           useValue: {
@@ -137,7 +143,7 @@ describe('AuditView', () => {
               const totalElements = tableLabel === 'Loco Singapore' ? 21 : 1;
               const totalPages = Math.max(Math.ceil(totalElements / pageSize), 1);
 
-              return of({
+              const response: DynamicAuditApiResponse = {
                 ...source,
                 data: {
                   ...source.data,
@@ -148,9 +154,11 @@ describe('AuditView', () => {
                   hasPrevious: pageNo > 0,
                   hasNext: pageNo < totalPages - 1,
                 },
-              });
+              };
+
+              return recordsResponseOverride ?? of(response);
             },
-            getAuditTableLabels: () => of(labelsResponse),
+            getAuditTableLabels: () => labelsResponseOverride ?? of(labelsResponse),
           },
         },
       ],
@@ -194,6 +202,38 @@ describe('AuditView', () => {
     expect(element.querySelector('.records-panel')).toBeNull();
   });
 
+  it('renders asynchronously loaded labels without requiring another user action', async () => {
+    const labelsSubject = new Subject<AuditTableLabelsApiResponse>();
+    labelsResponseOverride = labelsSubject.asObservable();
+    const fixture = await createFixture();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.table-count')?.textContent).toContain('0 tables');
+
+    labelsSubject.next(labelsResponse);
+    labelsSubject.complete();
+    await fixture.whenStable();
+
+    expect(element.querySelector('.table-count')?.textContent).toContain('3 tables');
+  });
+
+  it('renders asynchronously loaded records without requiring another user action', async () => {
+    const recordsSubject = new Subject<DynamicAuditApiResponse>();
+    recordsResponseOverride = recordsSubject.asObservable();
+    const fixture = await createFixture();
+    const element = fixture.nativeElement as HTMLElement;
+
+    await selectTable(fixture, 'Holiday Calendar');
+    expect(element.querySelector('.panel-state')?.textContent).toContain('Loading audit records');
+
+    recordsSubject.next(holidayResponse);
+    recordsSubject.complete();
+    await fixture.whenStable();
+
+    expect(element.querySelector('.panel-state')).toBeNull();
+    expect(element.querySelector('.record-id')?.textContent).toContain('#3001');
+  });
+
   it('changes the record and history schemas when a table is selected', async () => {
     const fixture = await createFixture();
     const component = fixture.componentInstance;
@@ -219,6 +259,9 @@ describe('AuditView', () => {
     await fixture.whenStable();
 
     const historyText = element.querySelector('.history-row')?.textContent;
+    expect(component.rows[0].historyColumns.map((column) => column.label)).toContain(
+      'Locomotive Code',
+    );
     expect(historyText).toContain('Country Code');
     expect(historyText).toContain('#9401');
     expect(historyText).toContain('SG-L-001');
@@ -303,6 +346,27 @@ describe('AuditView', () => {
 
     expect(component.canExpandRow(component.rows[0])).toBe(false);
     expect(element.querySelector('.expand-button')).toBeNull();
+
+    component.toggleRow(2001);
+    component.toggleRow(2002);
+    expect(component.isRowExpanded(2001)).toBe(false);
+    expect(component.isRowExpanded(2002)).toBe(true);
+  });
+
+  it('exposes expanded history as a keyboard-scrollable region', async () => {
+    const fixture = await createFixture();
+    const element = fixture.nativeElement as HTMLElement;
+
+    await selectTable(fixture, 'Loco Singapore');
+    (element.querySelector('.expand-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    const historyScroller = element.querySelector('.history-table-wrap') as HTMLElement;
+
+    expect(historyScroller).not.toBeNull();
+    expect(historyScroller.getAttribute('role')).toBe('region');
+    expect(historyScroller.getAttribute('tabindex')).toBe('0');
+    expect(historyScroller.getAttribute('aria-label')).toBe('Audit history for record 2001');
   });
 
   it('offers source fields only and applies typed AND/OR conditions', async () => {
@@ -315,7 +379,9 @@ describe('AuditView', () => {
     await fixture.whenStable();
 
     const fieldKeys = component.filterFields.map((field) => field.key);
-    const fieldOptions = element.querySelector('.filter-field select')?.textContent;
+    (element.querySelector('.field-trigger') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    const fieldOptions = element.querySelector('.field-options')?.textContent;
 
     expect(fieldKeys).toContain('ID');
     expect(fieldKeys).toContain('LOCOMOTIVE_CODE');
@@ -329,12 +395,14 @@ describe('AuditView', () => {
     const conditions: AuditFilterCondition[] = [
       {
         id: 1,
+        join: 'AND',
         fieldKey: 'LOCOMOTIVE_CODE',
         operator: 'contains',
         value: '001',
       },
       {
         id: 2,
+        join: 'AND',
         fieldKey: 'DEPOT_CODE',
         operator: 'equals',
         value: 'PSA',
@@ -342,15 +410,40 @@ describe('AuditView', () => {
     ];
 
     component.filterConditions = conditions;
-    component.filterMatch = 'AND';
     expect(component.filteredRows).toHaveLength(0);
 
-    component.filterMatch = 'OR';
+    conditions[1].join = 'OR';
     expect(component.filteredRows).toHaveLength(1);
 
     component.filterConditions = [
       {
         id: 3,
+        join: 'AND',
+        fieldKey: 'LOCOMOTIVE_CODE',
+        operator: 'contains',
+        value: '001',
+      },
+      {
+        id: 4,
+        join: 'OR',
+        fieldKey: 'DEPOT_CODE',
+        operator: 'equals',
+        value: 'PSA',
+      },
+      {
+        id: 5,
+        join: 'AND',
+        fieldKey: 'FLEET_STATUS',
+        operator: 'equals',
+        value: 'RETIRED',
+      },
+    ];
+    expect(component.filteredRows).toHaveLength(1);
+
+    component.filterConditions = [
+      {
+        id: 6,
+        join: 'AND',
         fieldKey: 'ID',
         operator: 'greaterThan',
         value: '2000',
@@ -360,13 +453,146 @@ describe('AuditView', () => {
 
     component.filterConditions = [
       {
-        id: 4,
+        id: 7,
+        join: 'AND',
         fieldKey: 'LAST_UPDATED',
         operator: 'equals',
         value: '2026-08-28',
       },
     ];
     expect(component.filteredRows).toHaveLength(1);
+  });
+
+  it('keeps condition and value enabled and preserves them when a field is selected', async () => {
+    const fixture = await createFixture();
+    const element = fixture.nativeElement as HTMLElement;
+
+    await selectTable(fixture, 'Holiday Calendar');
+    (element.querySelector('.filter-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    let fieldTrigger = element.querySelector('.field-trigger') as HTMLButtonElement;
+    let operatorTrigger = element.querySelector('.operator-trigger') as HTMLButtonElement;
+    let valueInput = element.querySelector('.filter-value input') as HTMLInputElement;
+
+    expect(operatorTrigger.disabled).toBe(false);
+    expect(valueInput.disabled).toBe(false);
+
+    operatorTrigger.click();
+    await fixture.whenStable();
+
+    expect(element.querySelectorAll('.operator-option')).toHaveLength(10);
+    (element.querySelector('[data-operator="startsWith"]') as HTMLButtonElement).click();
+    valueInput.value = 'SG';
+    valueInput.dispatchEvent(new Event('input'));
+
+    fieldTrigger.click();
+    await fixture.whenStable();
+    (element.querySelector('[data-field="CALENDAR_CODE"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    fieldTrigger = element.querySelector('.field-trigger') as HTMLButtonElement;
+    operatorTrigger = element.querySelector('.operator-trigger') as HTMLButtonElement;
+    valueInput = element.querySelector('.filter-value input') as HTMLInputElement;
+
+    expect(operatorTrigger.disabled).toBe(false);
+    expect(fieldTrigger.textContent).toContain('Calendar');
+    expect(valueInput.disabled).toBe(false);
+    expect(operatorTrigger.textContent).toContain('Starts with');
+    expect(fixture.componentInstance.filterConditions[0].operator).toBe('startsWith');
+    expect(valueInput.value).toBe('SG');
+    expect(fixture.componentInstance.filteredRows).toHaveLength(1);
+
+    valueInput.value = 'missing-calendar';
+    valueInput.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+
+    expect(element.querySelector('.panel-state')?.textContent).toContain('No matching records');
+  });
+
+  it('supports keyboard selection in the custom field menu', async () => {
+    const fixture = await createFixture();
+    const element = fixture.nativeElement as HTMLElement;
+
+    await selectTable(fixture, 'Holiday Calendar');
+    (element.querySelector('.filter-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    const fieldTrigger = element.querySelector('.field-trigger') as HTMLButtonElement;
+    fieldTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    await fixture.whenStable();
+
+    expect(fieldTrigger.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelectorAll('.field-option')).toHaveLength(5);
+
+    fieldTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    fieldTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.filterConditions[0].fieldKey).toBe('ID');
+    expect(element.querySelector('.field-options')).toBeNull();
+    expect(fieldTrigger.textContent).toContain('ID');
+  });
+
+  it('supports keyboard selection in the custom condition menu', async () => {
+    const fixture = await createFixture();
+    const element = fixture.nativeElement as HTMLElement;
+
+    await selectTable(fixture, 'Holiday Calendar');
+    (element.querySelector('.filter-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    const operatorTrigger = element.querySelector('.operator-trigger') as HTMLButtonElement;
+    operatorTrigger.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+    );
+    await fixture.whenStable();
+
+    expect(operatorTrigger.getAttribute('aria-expanded')).toBe('true');
+
+    operatorTrigger.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+    );
+    operatorTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.filterConditions[0].operator).toBe('equals');
+    expect(element.querySelector('.operator-options')).toBeNull();
+    expect(operatorTrigger.textContent).toContain('Equals');
+  });
+
+  it('keeps the AND or OR join independent for every added condition', async () => {
+    const fixture = await createFixture();
+    const component = fixture.componentInstance;
+    const element = fixture.nativeElement as HTMLElement;
+
+    await selectTable(fixture, 'Holiday Calendar');
+    (element.querySelector('.filter-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    const addConditionButton = element.querySelector('.add-condition') as HTMLButtonElement;
+    addConditionButton.click();
+    addConditionButton.click();
+    await fixture.whenStable();
+
+    const joinControls = element.querySelectorAll<HTMLElement>('.condition-join-toggle');
+    expect(joinControls).toHaveLength(2);
+
+    (joinControls[0].querySelector('[data-join="OR"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(component.filterConditions.map((condition) => condition.join)).toEqual([
+      'AND',
+      'OR',
+      'AND',
+    ]);
+    expect(joinControls[0].querySelector('[data-join="OR"]')?.getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(joinControls[1].querySelector('[data-join="AND"]')?.getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(element.querySelector('.match-control')).toBeNull();
   });
 
   it('requests dynamic pages and resets page zero when page size changes', async () => {
@@ -407,6 +633,13 @@ describe('AuditView', () => {
       '50',
       '100',
     ]);
+
+    await selectTable(fixture, 'Holiday Calendar');
+    expect(recordRequests.at(-1)).toEqual({
+      tableLabel: 'Holiday Calendar',
+      pageNo: 0,
+      pageSize: 25,
+    });
   });
 
   it('returns to the choose-table state when refreshed', async () => {

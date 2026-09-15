@@ -61,6 +61,10 @@ Canonical example:
 - Except for Position Balance, a label maps to a file slug by trimming, lowercasing, replacing non-alphanumeric groups with hyphens, and trimming edge hyphens.
 - Position Balance intentionally maps to audit-records.json.
 
+## Table-record request
+
+For a selected label, request `GET /api/v1/{encodedTableLabel}` with zero-based `pageNo` and positive `pageSize` query parameters. For example, Position Balance uses `/api/v1/Position%20Balance?pageNo=0&pageSize=10`. Treat a successful backend response as authoritative. If it fails, request the configured JSON fixture and apply paging locally.
+
 ## Paginated audit response
 
 ```json

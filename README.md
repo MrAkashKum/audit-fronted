@@ -9,12 +9,13 @@ The implementation uses only the dependencies already declared in this project.
 - Searchable, clearable audit-table selector loaded from `GET /api/v1/allTable`, with a local JSON fallback.
 - Empty initial state; records are never fetched before a table is selected.
 - Refresh resets the selected table, records, filters, expansion, and pagination.
-- Table-specific JSON sources for Holiday Calendar, Loco Singapore, and Position Balance.
+- API-first table record requests with table-specific JSON fallbacks.
 - Main columns generated from originalData.
 - Sortable main headers with ascending, descending, and unsorted states.
 - Expanded audit-history columns generated independently from auditHistory.
 - Current and audit-only record states.
 - Typed condition builder with AND/OR matching.
+- Consistent accessible Field and Condition listboxes with custom selected states and keyboard navigation.
 - Filter fields restricted to ID and displayed source-table columns.
 - Text, numeric, date, boolean, empty, and non-empty comparisons.
 - Filters applied to the records on the current API page.
@@ -68,7 +69,7 @@ npm test -- --watch=false
 npm run build
 ```
 
-The current baseline is 17 passing tests and a warning-free production build.
+The current baseline is 25 passing tests and a warning-free production build.
 
 ## Routes
 
@@ -117,6 +118,25 @@ public/data/
 
 See [Data contracts](docs/DATA-CONTRACTS.md) for the envelope, field matrix, and rules for adding another table.
 
+## HTTP integration pattern
+
+`AuditService` owns endpoint URLs, typed `HttpClient` calls, paging parameters, fallback behavior, and fixture paging. It returns cold Observables and never subscribes internally. `AuditView` owns request state and subscribes explicitly:
+
+```ts
+this.tableLabelsSubscription = this.auditService.getAuditTableLabels().subscribe({
+  next: (response) => {
+    this.tableLabels = response.data.tableLabels;
+    this.areTableLabelsLoading = false;
+  },
+  error: () => {
+    this.tableLabelsErrorMessage = 'Unable to load audit tables.';
+    this.areTableLabelsLoading = false;
+  },
+});
+```
+
+The primary selector request is `GET /api/v1/allTable`. The service requests `data/audit-table-labels.json` only if that HTTP request fails. Record methods accept `tableLabel`, `pageNo`, and `pageSize`, request `GET /api/v1/{encodedTableLabel}`, and fall back to the matching JSON fixture if the backend is unavailable. Fixture responses receive consistent paging metadata locally; successful backend responses remain unchanged.
+
 ## How dynamic schemas work
 
 The component does not contain a fixed business-record interface. It keeps only the common audit envelope strongly typed:
@@ -126,7 +146,7 @@ The component does not contain a fixed business-record interface. It keeps only 
 - changeSummary.
 - auditHistory metadata such as operation and revision.
 
-Business fields remain a dynamic key/value map. Main-table columns are the ordered union of allowed keys found in originalData. History columns are the ordered union of keys found in auditHistory after audit metadata is removed.
+Business fields remain a dynamic key/value map. Main-table columns are the ordered union of allowed keys found in originalData. Each expanded record receives its own ordered history-column union after audit metadata is removed.
 
 This separation is intentional: a history-only field can be displayed inside the expanded history table but cannot leak into the main table or Filter Field selector.
 
@@ -134,23 +154,14 @@ This separation is intentional: a history-only field can be displayed inside the
 
 Opening Filter records creates one empty condition. Each condition contains:
 
-1. A source field.
-2. A type-appropriate operator.
-3. A value when the operator requires one.
+1. WHERE for the first rule, or an independent AND/OR join for each later rule.
+2. A source field.
+3. An operator.
+4. A value when the operator requires one.
 
-The Match control supports:
+Changing one join never changes another condition. Mixed expressions use standard boolean precedence: AND groups are evaluated before OR groups.
 
-- All conditions (AND)
-- Any condition (OR)
-
-Available operator groups:
-
-| Type    | Operators                                                                                          |
-| ------- | -------------------------------------------------------------------------------------------------- |
-| Text    | Contains, does not contain, equals, does not equal, starts with, ends with, is empty, is not empty |
-| Number  | Equals, does not equal, greater/less than, greater/less than or equal, is empty, is not empty      |
-| Date    | On, before, after, is empty, is not empty                                                          |
-| Boolean | Equals, does not equal, is empty, is not empty                                                     |
+Every source field offers Contains, Equals, Not equals, Starts with, Greater than, Greater than or equal, Less than, Less than or equal, Is empty, and Is not empty. Condition and Value remain usable before field selection, matching the reference workflow; an incomplete rule is ignored until its field and required value are present. Ordered comparisons use numbers when possible, then dates, then case-insensitive natural text ordering.
 
 Incomplete conditions are ignored. Zero complete conditions display all records on the current page.
 
@@ -158,28 +169,29 @@ Incomplete conditions are ignored. Zero complete conditions display all records 
 
 The service method accepts tableLabel, pageNo, and pageSize and sends pageNo/pageSize as query parameters. The component synchronizes its visible state from every response.
 
-- Selecting a table starts at page 0.
+- Selecting a table starts at page 0 and retains the current page size.
 - Changing page size returns to page 0.
 - First, previous, next, and last buttons calculate a zero-based target page.
 - The displayed range is pageNo × pageSize + 1 through the last element on that page, capped by totalElements.
 
-The bundled data files are static fixtures. The service adapter slices their rows and creates consistent page metadata locally so page-size behavior remains functional. A real endpoint should use the same request parameters and return the requested page metadata and rows; remove the fixture adapter when that endpoint is connected.
+The bundled data files are static fallbacks. The service adapter slices fallback rows and creates consistent page metadata locally so page-size behavior remains functional when the backend is unavailable.
 
 ## Adding another audit table
 
 1. Return the label from `GET /api/v1/allTable`.
 2. Add the same label to public/data/audit-table-labels.json for offline/demo fallback behavior.
-3. Add a file named public/data/audit-records-{normalized-label}.json.
-4. Use the common response envelope documented in docs/DATA-CONTRACTS.md.
-5. Put current source fields inside originalData.
-6. Put revision snapshots inside auditHistory.
-7. Run tests and the production build.
+3. Implement `GET /api/v1/{encodedTableLabel}` with pageNo and pageSize query parameters.
+4. Add a file named public/data/audit-records-{normalized-label}.json for fallback behavior.
+5. Use the common response envelope documented in docs/DATA-CONTRACTS.md.
+6. Put current source fields inside originalData.
+7. Put revision snapshots inside auditHistory.
+8. Run tests and the production build.
 
 The service normalizes labels by lowercasing them and replacing non-alphanumeric groups with hyphens. Position Balance intentionally maps to the original audit-records.json file.
 
 ## Dependency policy
 
-No new UI library is required. The feature uses Angular standalone components, HttpClient, Router, RxJS, native HTML controls, component CSS, Tailwind's global CSS import, and the existing Angular test stack.
+No new UI library is required. The feature uses Angular standalone components, HttpClient, Router, RxJS, native HTML controls, Tailwind's global import, globally bundled audit rules isolated with `@scope (app-audit-view)`, and a minimal component host stylesheet.
 
 See [Dependency audit](docs/DEPENDENCIES.md) for installed versions, actual usage, and cleanup recommendations.
 
@@ -207,6 +219,7 @@ See [Dependency audit](docs/DEPENDENCIES.md) for installed versions, actual usag
 - Table options can be searched by API label or visible display name and selected with the keyboard.
 - Sort state is exposed through aria-sort on each sortable header.
 - Expanded-row buttons expose aria-expanded and record-specific labels.
+- Wide history tables use a focusable, record-labelled horizontal scroll region instead of stretching or clipping the records panel.
 - Loading and empty states use polite live announcements.
 - Request failures use alert semantics.
 - Icon-only pagination and removal controls have accessible labels.

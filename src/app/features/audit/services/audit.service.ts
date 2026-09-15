@@ -6,44 +6,77 @@ import { AuditApiResponse } from '../models/audit-record.model';
 import { AuditTableLabelsApiResponse } from '../models/audit-table-label.model';
 import { DynamicAuditApiResponse } from '../models/audit-view.model';
 
+const AUDIT_API_BASE_PATH = '/api/v1';
+const AUDIT_API_ENDPOINTS = {
+  tableLabels: `${AUDIT_API_BASE_PATH}/allTable`,
+  records: (tableLabel: string) => `${AUDIT_API_BASE_PATH}/${encodeURIComponent(tableLabel)}`,
+} as const;
+
+const AUDIT_DEMO_BASE_PATH = 'data';
+const AUDIT_DEMO_ENDPOINTS = {
+  tableLabels: `${AUDIT_DEMO_BASE_PATH}/audit-table-labels.json`,
+  positionBalanceRecords: `${AUDIT_DEMO_BASE_PATH}/audit-records.json`,
+} as const;
+
+const POSITION_BALANCE_TABLE = 'Position Balance';
+const DEFAULT_PAGE_NO = 0;
+const DEFAULT_PAGE_SIZE = 10;
+
 @Injectable({
   providedIn: 'root',
 })
 export class AuditService {
   private readonly http = inject(HttpClient);
-  private readonly auditApiUrl = 'data/audit-records.json';
-  private readonly auditTableLabelsApiUrl = '/api/v1/allTable';
-  private readonly auditTableLabelsFallbackUrl = 'data/audit-table-labels.json';
 
   getAuditRecords(): Observable<AuditApiResponse> {
-    return this.http.get<AuditApiResponse>(this.auditApiUrl);
+    return this.http.get<AuditApiResponse>(AUDIT_DEMO_ENDPOINTS.positionBalanceRecords);
   }
 
   getAuditRecordsForTable(
     tableLabel: string,
-    pageNo = 0,
-    pageSize = 10,
+    pageNo = DEFAULT_PAGE_NO,
+    pageSize = DEFAULT_PAGE_SIZE,
   ): Observable<DynamicAuditApiResponse> {
-    const sourceUrl =
-      tableLabel === 'Position Balance'
-        ? this.auditApiUrl
-        : `data/audit-records-${this.toFileSlug(tableLabel)}.json`;
-
-    const params = new HttpParams().set('pageNo', pageNo).set('pageSize', pageSize);
+    const requestedPageNo = this.normalizePageNo(pageNo);
+    const requestedPageSize = this.normalizePageSize(pageSize);
+    const params = new HttpParams({
+      fromObject: {
+        pageNo: requestedPageNo.toString(),
+        pageSize: requestedPageSize.toString(),
+      },
+    });
 
     return this.http
-      .get<DynamicAuditApiResponse>(sourceUrl, { params })
-      .pipe(map((response) => this.createFixturePage(response, pageNo, pageSize)));
+      .get<DynamicAuditApiResponse>(AUDIT_API_ENDPOINTS.records(tableLabel), { params })
+      .pipe(
+        catchError(() =>
+          this.http
+            .get<DynamicAuditApiResponse>(this.getDemoRecordsUrl(tableLabel), { params })
+            .pipe(
+              map((response) =>
+                this.createFixturePage(response, requestedPageNo, requestedPageSize),
+              ),
+            ),
+        ),
+      );
   }
 
   getAuditTableLabels(): Observable<AuditTableLabelsApiResponse> {
     return this.http
-      .get<AuditTableLabelsApiResponse>(this.auditTableLabelsApiUrl)
+      .get<AuditTableLabelsApiResponse>(AUDIT_API_ENDPOINTS.tableLabels)
       .pipe(
         catchError(() =>
-          this.http.get<AuditTableLabelsApiResponse>(this.auditTableLabelsFallbackUrl),
+          this.http.get<AuditTableLabelsApiResponse>(AUDIT_DEMO_ENDPOINTS.tableLabels),
         ),
       );
+  }
+
+  private getDemoRecordsUrl(tableLabel: string): string {
+    if (tableLabel === POSITION_BALANCE_TABLE) {
+      return AUDIT_DEMO_ENDPOINTS.positionBalanceRecords;
+    }
+
+    return `${AUDIT_DEMO_BASE_PATH}/audit-records-${this.toFileSlug(tableLabel)}.json`;
   }
 
   private toFileSlug(tableLabel: string): string {
@@ -54,10 +87,25 @@ export class AuditService {
       .replace(/^-|-$/g, '');
   }
 
+  private normalizePageNo(pageNo: number): number {
+    return Number.isFinite(pageNo)
+      ? Math.max(DEFAULT_PAGE_NO, Math.floor(pageNo))
+      : DEFAULT_PAGE_NO;
+  }
+
+  private normalizePageSize(pageSize: number): number {
+    if (!Number.isFinite(pageSize)) {
+      return DEFAULT_PAGE_SIZE;
+    }
+
+    const normalizedPageSize = Math.floor(pageSize);
+    return normalizedPageSize > 0 ? normalizedPageSize : DEFAULT_PAGE_SIZE;
+  }
+
   /**
-   * The current endpoints are static JSON fixtures, so the browser must apply the
-   * requested page metadata locally. Remove this adapter when sourceUrl is replaced
-   * by a backend endpoint that already performs server-side pagination.
+   * Static fallback fixtures contain their complete row set, so this adapter applies
+   * the requested pagination locally. Successful backend responses bypass it and keep
+   * their server-provided page metadata unchanged.
    */
   private createFixturePage(
     response: DynamicAuditApiResponse,

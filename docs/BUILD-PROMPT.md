@@ -22,7 +22,7 @@ Project and dependency constraints
   - Angular build/CLI/compiler-cli
   - Vitest and jsdom
   - Prettier
-- Use native HTML controls and component CSS. Do not add Angular Material, CDK, AG Grid, Bootstrap, PrimeNG, Lodash, Moment, date-fns, an icon package, or a state-management library.
+- Use native HTML controls and the existing CSS. Keep the HEIC global base/scrollbar rules in `src/styles.css`, isolate feature presentation with `@scope (app-audit-view)`, and keep `audit-view.css` limited to host styles. Do not add Angular Material, CDK, AG Grid, Bootstrap, PrimeNG, Lodash, Moment, date-fns, an icon package, or a state-management library.
 - Use HttpClient and explicit RxJS subscribe({ next, error }) handling in the component.
 - Keep the primary feature under src/app/features/audit.
 - The primary route must be /audit.
@@ -47,6 +47,8 @@ The final feature files should include:
 API and JSON fixtures
 
 Load selector labels from `GET /api/v1/allTable`. Subscribe to the response in the component and render every value in `data.tableLabels` as a clickable search result. If the endpoint fails, load `public/data/audit-table-labels.json` through `/data/audit-table-labels.json` as the offline/demo fallback.
+
+For records, call `GET /api/v1/{encodeURIComponent(tableLabel)}` with pageNo/pageSize query parameters first. Fall back to the table-specific JSON only when the backend request fails. Never locally re-page a successful backend response.
 
 Use all four existing files:
 
@@ -121,7 +123,7 @@ Core behavior
 - Do not automatically select the first table.
 - Do not request records until the user explicitly selects a table.
 - Show a centered “Choose an audit table” state.
-- Refresh must cancel the current record request, clear selection, records, schemas, filters, expanded rows, errors, and pagination, reload labels, and return to the choose-table state.
+- Refresh must cancel the current record request; clear selection, records, schemas, filters, expanded rows, errors, and page index; retain the current page size and loaded labels; and return to the choose-table state. Reload labels only when recovering from a catalog failure.
 
 2. Table selector
 
@@ -169,13 +171,11 @@ Core behavior
 When Filter records is activated, display:
 
 - Filter records title and explanatory copy.
-- Match selector:
-  - All conditions (AND)
-  - Any condition (OR)
 - Add condition.
 - Clear all.
 - One or more rows containing:
-  - WHERE/AND/OR join label
+  - WHERE for the first row
+  - an independent AND/OR segmented join control for every later row
   - Field selector
   - Condition/operator selector
   - Value input
@@ -203,19 +203,18 @@ Infer field types from the first non-null source value:
 - ISO date/datetime or date-like key -> date field
 - other string -> text field
 
-Operators:
+Operators for every source field:
 
-- Text: contains, not contains, equals, not equals, starts with, ends with, is empty, is not empty.
-- Number: equals, not equals, greater than, greater than or equal, less than, less than or equal, is empty, is not empty.
-- Date: on, before, after, is empty, is not empty.
-- Boolean: equals, not equals, is empty, is not empty.
+- Contains, Equals, Not equals, Starts with, Greater than, Greater than or equal, Less than, Less than or equal, Is empty, and Is not empty.
+- Keep Condition and Value enabled before a field is selected.
+- Preserve the current operator and value when the field changes.
 
 Rules:
 
 - Ignore incomplete conditions.
 - Zero complete conditions show all records on the current response page.
-- AND requires all complete conditions.
-- OR requires at least one complete condition.
+- Changing one row's join must not update another row.
+- Evaluate AND groups before OR groups, matching standard boolean precedence.
 - Compare text case-insensitively.
 - Compare numbers numerically.
 - Compare dates as normalized calendar dates.
@@ -233,12 +232,12 @@ AuditService.getAuditRecordsForTable must accept:
 Send pageNo and pageSize as HttpParams.
 
 - Offer page sizes 10, 25, 50, and 100.
-- While endpoints are static JSON fixtures, normalize and slice the fixture response locally; remove this adapter for a real paginated backend.
+- Request `GET /api/v1/{encodedTableLabel}` first. If it fails, normalize and slice the matching static JSON fixture locally.
 
 The component must:
 
 - Synchronize pageNo and pageSize from every response.
-- Request page 0 after table selection.
+- Request page 0 after table selection while retaining the current page size.
 - Request page 0 when page size changes.
 - Implement First, Previous, Next, and Last buttons.
 - Disable backward buttons on page 0.
@@ -287,7 +286,7 @@ Write tests that verify:
 
 - Initial load fetches labels but not records.
 - Empty choose-table state is rendered.
-- Table selection sends tableLabel, pageNo 0, pageSize 10.
+- Table selection sends the encoded tableLabel, pageNo 0, and the current pageSize.
 - Columns change between Holiday Calendar and Loco Singapore.
 - Expanded history uses history-specific fields.
 - Filter fields include ID and originalData display fields.

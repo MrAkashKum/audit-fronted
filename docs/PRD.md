@@ -105,12 +105,12 @@ Needs to connect the reusable UI to a real paginated API and add audit entities 
 - Non-empty search text provides a clear action.
 - Each option shows initials, a display name, and its source label.
 - The selected option shows Current and a confirmation mark.
-- Selection closes the menu and starts at page 0 with the default page size.
+- Selection closes the menu, starts at page 0, and retains the currently chosen page size.
 - The document title identifies either the table-selection state or the selected friendly table name.
 
 ### FR-04: Table-specific source request
 
-The mapping must be:
+The primary request is `GET /api/v1/{encodedTableLabel}?pageNo={pageNo}&pageSize={pageSize}`. If it fails, use this fallback mapping:
 
 | Label            | Fixture endpoint                         |
 | ---------------- | ---------------------------------------- |
@@ -133,7 +133,7 @@ The request must include pageNo and pageSize query parameters.
 
 ### FR-06: Dynamic history schema
 
-- Build history columns from auditHistory independently from the main schema.
+- Build history columns from each expanded record's auditHistory independently from the main schema and other records.
 - Exclude sequenceNumber, revision, revisionTypeCode, operation, ID, REV, and REVTYPE from the dynamic set because operation and revision have dedicated columns.
 - Preserve history-only fields inside the expanded table.
 - Never add history-only fields to the main table or filter field list.
@@ -150,6 +150,8 @@ The request must include pageNo and pageSize query parameters.
 - Expanded content shows the number of revisions and the record ID.
 - Each history row shows operation, revision, and the dynamic revision snapshot fields.
 - INSERT, UPDATE, and DELETE use visually distinct labels.
+- Wide history schemas stay inside the expanded record and use a dedicated horizontal scrollbar.
+- The history scroll region must be keyboard-focusable and expose a record-specific accessible label.
 - Expanding one row does not alter filtering or pagination.
 
 ### FR-09: Filter builder
@@ -158,7 +160,11 @@ The request must include pageNo and pageSize query parameters.
 - Opening an empty builder creates one blank condition.
 - Users can add repeated conditions, remove a condition, or clear all.
 - Removing the final condition leaves one blank condition while the builder remains open.
-- Clear all resets the match mode to AND and leaves one blank row while open.
+- Render Field and Condition as application-controlled accessible listboxes so selected treatments and option menus remain consistent across browsers.
+- Support pointer selection plus Arrow Up/Down, Enter, Space, and Escape interactions in both menus.
+- Keep Value visually aligned with the listboxes and show the same gold focus feedback.
+- The first rule shows WHERE; every later rule owns an independent AND/OR segmented control.
+- Clear all leaves one blank WHERE row while the builder remains open.
 - Changing tables clears all previous filters.
 
 ### FR-10: Filter field safety
@@ -176,22 +182,19 @@ It must exclude:
 - record state.
 - hidden technical metadata.
 
-### FR-11: Typed operators
+### FR-11: Filter operators
 
-| Field type | Required behavior                                                  |
-| ---------- | ------------------------------------------------------------------ |
-| Text       | Contains, not contains, equals, not equals, starts with, ends with |
-| Number     | Equality and numeric greater/less comparisons                      |
-| Date       | On, before, and after using normalized calendar dates              |
-| Boolean    | True/false equality                                                |
-| Any type   | Is empty and is not empty                                          |
-
-The component infers type from the first non-null source value, with ISO/date-field detection for date strings.
+- Every source field offers Contains, Equals, Not equals, Starts with, Greater than, Greater than or equal, Less than, Less than or equal, Is empty, and Is not empty.
+- Condition and Value remain enabled before field selection.
+- Selecting a field preserves the already selected operator and entered value.
+- The component still infers number, date, boolean, and text types for value-control presentation and equality behavior.
+- Ordered comparisons use numbers when both values are numeric, dates when both values are date-like, and case-insensitive natural text ordering otherwise.
 
 ### FR-12: Match behavior
 
-- AND requires every complete condition to match.
-- OR requires at least one complete condition to match.
+- Changing a rule's AND/OR join must never change another rule.
+- The join on each rule after the first connects it to the preceding expression.
+- Evaluate contiguous AND groups before combining those groups with OR.
 - Incomplete conditions are ignored.
 - If no condition is complete, all records from the current response page are visible.
 - Comparisons must be case-insensitive for text.
@@ -216,9 +219,9 @@ Refresh must:
 1. Cancel the active records subscription.
 2. Clear selected table and search text.
 3. Close menus and filters.
-4. Reset pageNo to 0 and pageSize to 10.
+4. Reset pageNo to 0 and retain the current pageSize.
 5. Clear response, schemas, rows, errors, expansions, and filter conditions.
-6. Reload table labels.
+6. Keep the loaded table catalog; reload it only when recovering from a catalog failure.
 7. Display the empty-selection state.
 8. Restore the default document title.
 

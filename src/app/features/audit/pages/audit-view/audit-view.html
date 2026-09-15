@@ -49,9 +49,7 @@
             @if (areTableLabelsLoading) {
               <div class="picker-state">Loading audit tables…</div>
             } @else if (tableLabelsErrorMessage) {
-              <div class="picker-state picker-state--error">
-                {{ tableLabelsErrorMessage }}
-              </div>
+              <div class="picker-state picker-state--error">{{ tableLabelsErrorMessage }}</div>
             } @else if (filteredTableLabels.length === 0) {
               <div class="picker-state">No tables match “{{ tableSearchQuery }}”.</div>
             } @else {
@@ -118,20 +116,14 @@
     <section class="records-panel" aria-labelledby="records-title">
       <header class="records-toolbar">
         <h1 id="records-title">
-          <strong>{{ recordsResponse?.data?.totalElements ?? rows.length }}</strong>
-          <span>
-            {{
-              (recordsResponse?.data?.totalElements ?? rows.length) === 1
-                ? 'Total record'
-                : 'Total records'
-            }}
-          </span>
+          <strong>{{ totalRecordCount }}</strong>
+          <span>{{ totalRecordLabel }}</span>
         </h1>
 
         <button
           type="button"
           class="filter-button"
-          [class.filter-button--active]="isRecordFilterOpen"
+          [class.filter-button--active]="isRecordFilterOpen || activeFilterCount > 0"
           (click)="toggleRecordFilters()"
         >
           <span aria-hidden="true">☷</span>
@@ -147,17 +139,10 @@
           <div class="filter-builder-header">
             <div>
               <h2 id="filter-builder-title">Filter records</h2>
-              <p>Build precise rules from the selected table.</p>
+              <p>Build precise rules. Choose AND or OR independently for each added rule.</p>
             </div>
 
             <div class="filter-actions">
-              <label class="match-control">
-                <span>Match</span>
-                <select [value]="filterMatch" (change)="onFilterMatchChange($event)">
-                  <option value="AND">All conditions (AND)</option>
-                  <option value="OR">Any condition (OR)</option>
-                </select>
-              </label>
               <button type="button" class="add-condition" (click)="addFilterCondition()">
                 + Add condition
               </button>
@@ -170,35 +155,160 @@
           <div class="filter-conditions">
             @for (condition of filterConditions; track condition.id; let conditionIndex = $index) {
               <div class="filter-condition">
-                <strong class="condition-join">
-                  {{ conditionIndex === 0 ? 'Where' : filterMatch }}
-                </strong>
+                <div class="condition-join-cell">
+                  @if (conditionIndex === 0) {
+                    <strong class="condition-join">Where</strong>
+                  } @else {
+                    <div
+                      class="condition-join-toggle"
+                      role="group"
+                      [attr.aria-label]="
+                        'Join condition ' + (conditionIndex + 1) + ' with the previous rule'
+                      "
+                    >
+                      <button
+                        type="button"
+                        data-join="AND"
+                        [class.condition-join-option--active]="condition.join === 'AND'"
+                        [attr.aria-pressed]="condition.join === 'AND'"
+                        (click)="setFilterConditionJoin(condition, 'AND')"
+                      >
+                        AND
+                      </button>
+                      <button
+                        type="button"
+                        data-join="OR"
+                        [class.condition-join-option--active]="condition.join === 'OR'"
+                        [attr.aria-pressed]="condition.join === 'OR'"
+                        (click)="setFilterConditionJoin(condition, 'OR')"
+                      >
+                        OR
+                      </button>
+                    </div>
+                  }
+                </div>
 
-                <label class="filter-control filter-field">
-                  <span class="visually-hidden">Field</span>
-                  <select
-                    [value]="condition.fieldKey"
-                    (change)="onFilterFieldChange(condition, $event)"
+                <div
+                  class="filter-control filter-select filter-field"
+                  [class.filter-select--open]="isFilterFieldMenuOpen(condition.id)"
+                  (focusout)="onFilterFieldFocusOut(condition.id, $event)"
+                >
+                  <button
+                    #fieldTrigger
+                    type="button"
+                    class="select-trigger field-trigger"
+                    role="combobox"
+                    aria-haspopup="listbox"
+                    [class.select-trigger--placeholder]="!condition.fieldKey"
+                    [attr.aria-label]="'Field: ' + getFilterFieldLabel(condition.fieldKey)"
+                    [attr.aria-expanded]="isFilterFieldMenuOpen(condition.id)"
+                    [attr.aria-controls]="'filter-field-options-' + condition.id"
+                    [attr.aria-activedescendant]="getActiveFilterFieldOptionId(condition.id)"
+                    (click)="toggleFilterFieldMenu(condition)"
+                    (keydown)="onFilterFieldKeydown(condition, $event, fieldTrigger)"
                   >
-                    <option value="">Field</option>
-                    @for (field of filterFields; track field.key) {
-                      <option [value]="field.key">{{ field.label }}</option>
-                    }
-                  </select>
-                </label>
+                    <span>{{ getFilterFieldLabel(condition.fieldKey) }}</span>
+                    <span
+                      class="select-caret"
+                      [class.select-caret--open]="isFilterFieldMenuOpen(condition.id)"
+                      aria-hidden="true"
+                    ></span>
+                  </button>
 
-                <label class="filter-control filter-operator">
+                  @if (isFilterFieldMenuOpen(condition.id)) {
+                    <div
+                      [id]="'filter-field-options-' + condition.id"
+                      class="select-options field-options"
+                      role="listbox"
+                      [attr.aria-label]="'Fields for filter ' + (conditionIndex + 1)"
+                    >
+                      @for (field of filterFieldOptions; track field.key; let fieldIndex = $index) {
+                        <button
+                          [id]="'filter-field-' + condition.id + '-' + fieldIndex"
+                          type="button"
+                          class="select-option field-option"
+                          role="option"
+                          tabindex="-1"
+                          [attr.data-field]="field.key"
+                          [attr.aria-selected]="condition.fieldKey === field.key"
+                          [class.select-option--selected]="condition.fieldKey === field.key"
+                          [class.select-option--active]="activeFieldOptionIndex === fieldIndex"
+                          (mouseenter)="setActiveFilterField(fieldIndex)"
+                          (click)="selectFilterField(condition, field.key, fieldTrigger)"
+                        >
+                          <span>{{ field.label }}</span>
+                          @if (condition.fieldKey === field.key) {
+                            <span class="select-check" aria-hidden="true">✓</span>
+                          }
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <div
+                  class="filter-control filter-select filter-operator"
+                  [class.filter-select--open]="isFilterOperatorMenuOpen(condition.id)"
+                  (focusout)="onFilterOperatorFocusOut(condition.id, $event)"
+                >
                   <span>Condition</span>
-                  <select
-                    [value]="condition.operator"
-                    [disabled]="!condition.fieldKey"
-                    (change)="onFilterOperatorChange(condition, $event)"
+                  <button
+                    #operatorTrigger
+                    type="button"
+                    class="select-trigger operator-trigger"
+                    role="combobox"
+                    aria-haspopup="listbox"
+                    [attr.aria-label]="'Condition: ' + getFilterOperatorLabel(condition.operator)"
+                    [attr.aria-expanded]="isFilterOperatorMenuOpen(condition.id)"
+                    [attr.aria-controls]="'filter-operator-options-' + condition.id"
+                    [attr.aria-activedescendant]="getActiveFilterOperatorOptionId(condition.id)"
+                    (click)="toggleFilterOperatorMenu(condition)"
+                    (keydown)="onFilterOperatorKeydown(condition, $event, operatorTrigger)"
                   >
-                    @for (operator of getOperatorOptions(condition); track operator.value) {
-                      <option [value]="operator.value">{{ operator.label }}</option>
-                    }
-                  </select>
-                </label>
+                    <span>{{ getFilterOperatorLabel(condition.operator) }}</span>
+                    <span
+                      class="select-caret"
+                      [class.select-caret--open]="isFilterOperatorMenuOpen(condition.id)"
+                      aria-hidden="true"
+                    ></span>
+                  </button>
+
+                  @if (isFilterOperatorMenuOpen(condition.id)) {
+                    <div
+                      [id]="'filter-operator-options-' + condition.id"
+                      class="select-options operator-options"
+                      role="listbox"
+                      [attr.aria-label]="'Conditions for filter ' + (conditionIndex + 1)"
+                    >
+                      @for (
+                        operator of getOperatorOptions();
+                        track operator.value;
+                        let operatorIndex = $index
+                      ) {
+                        <button
+                          [id]="'filter-operator-' + condition.id + '-' + operatorIndex"
+                          type="button"
+                          class="select-option operator-option"
+                          role="option"
+                          tabindex="-1"
+                          [attr.data-operator]="operator.value"
+                          [attr.aria-selected]="condition.operator === operator.value"
+                          [class.select-option--selected]="condition.operator === operator.value"
+                          [class.select-option--active]="
+                            activeOperatorOptionIndex === operatorIndex
+                          "
+                          (mouseenter)="setActiveFilterOperator(operatorIndex)"
+                          (click)="selectFilterOperator(condition, operator.value, operatorTrigger)"
+                        >
+                          <span>{{ operator.label }}</span>
+                          @if (condition.operator === operator.value) {
+                            <span class="select-check" aria-hidden="true">✓</span>
+                          }
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
 
                 @if (hasFilterValueInput(condition)) {
                   @if (isBooleanFilter(condition)) {
@@ -206,7 +316,6 @@
                       <span class="visually-hidden">Value</span>
                       <select
                         [value]="condition.value"
-                        [disabled]="!condition.fieldKey"
                         (change)="onFilterValueChange(condition, $event)"
                       >
                         <option value="">Value</option>
@@ -220,7 +329,6 @@
                       <input
                         [type]="getFilterInputType(condition)"
                         [value]="condition.value"
-                        [disabled]="!condition.fieldKey"
                         placeholder="Value"
                         (input)="onFilterValueChange(condition, $event)"
                       />
@@ -244,7 +352,7 @@
 
           <p class="filter-help">
             Number and date fields support comparisons. Filters use source-table fields and apply to
-            the current API page.
+            the current API page. AND is evaluated before OR.
           </p>
         </section>
       }
@@ -311,7 +419,12 @@
             </thead>
             <tbody>
               @for (row of filteredRows; track row.id) {
-                <tr class="record-row" [class.record-row--expanded]="isRowExpanded(row.id)">
+                <tr
+                  class="record-row"
+                  [class.record-row--expandable]="canExpandRow(row)"
+                  [class.record-row--expanded]="isRowExpanded(row.id)"
+                  (click)="canExpandRow(row) && toggleRow(row.id)"
+                >
                   <td>
                     @if (canExpandRow(row)) {
                       <button
@@ -323,7 +436,7 @@
                           ' audit history for record ' +
                           row.id
                         "
-                        (click)="toggleRow(row.id)"
+                        (click)="$event.stopPropagation(); toggleRow(row.id)"
                       >
                         <span [class.chevron--open]="isRowExpanded(row.id)">⌄</span>
                       </button>
@@ -343,7 +456,12 @@
                     </td>
                   }
                   <td>
-                    <span class="revision-count">{{ row.revisionCount }}</span>
+                    <span
+                      class="revision-count"
+                      [class.revision-count--muted]="row.revisionCount <= 1"
+                    >
+                      {{ row.revisionCount }}
+                    </span>
                   </td>
                   <td>
                     <span
@@ -368,13 +486,18 @@
                             </span>
                           </div>
                         </header>
-                        <div class="history-table-wrap">
+                        <div
+                          class="history-table-wrap"
+                          role="region"
+                          tabindex="0"
+                          [attr.aria-label]="'Audit history for record ' + row.id"
+                        >
                           <table class="history-table">
                             <thead>
                               <tr>
                                 <th scope="col">Operation</th>
                                 <th scope="col">Revision</th>
-                                @for (column of historyColumns; track column.key) {
+                                @for (column of row.historyColumns; track column.key) {
                                   <th scope="col">{{ column.label }}</th>
                                 }
                               </tr>
@@ -396,7 +519,7 @@
                                     </span>
                                   </td>
                                   <td class="history-revision">#{{ history.revision }}</td>
-                                  @for (column of historyColumns; track column.key) {
+                                  @for (column of row.historyColumns; track column.key) {
                                     @let historyValue = getHistoryValue(history, column);
                                     <td [class.null-value]="historyValue === null">
                                       {{ formatCellValue(historyValue, true) }}

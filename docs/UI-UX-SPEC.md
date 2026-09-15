@@ -83,12 +83,12 @@ Requirements:
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ 2 TOTAL RECORDS                                         [ Hide filters ] │
 ├──────────────────────────────────────────────────────────────────────────┤
-│ Filter records                ┌ Match ───────────────┐                    │
-│ Build precise rules...        │ All conditions (AND)│ [+ Add] [Clear all]│
-│                               └──────────────────────┘                    │
+│ Filter records                              [+ Add condition] [Clear all]│
+│ Choose AND or OR independently for each added rule.                      │
 │                                                                          │
 │ ┌──────────────────────────────────────────────────────────────────────┐ │
 │ │ WHERE │ Field ▼ │ Condition: Contains ▼ │ Value                 │ × │ │
+│ │AND│OR│ Field ▼ │ Condition: Equals ▼   │ Value                 │ × │ │
 │ └──────────────────────────────────────────────────────────────────────┘ │
 │ Number and date fields support comparisons. Filters use source fields.  │
 ├──────────────────────────────────────────────────────────────────────────┤
@@ -100,11 +100,17 @@ Requirements:
 
 - Filter panel remains inside the records card.
 - Hide filters uses the filled gold primary treatment.
-- Match, Add condition, and Clear all align to the right on desktop.
+- Add condition and Clear all align to the right on desktop.
 - Each condition is one bounded row.
 - The first join label is WHERE.
-- Later join labels reflect AND or OR.
+- Every later rule has its own compact AND/OR segmented control; changing it never changes another rule.
+- AND groups are evaluated before OR groups.
 - Field, operator, and value controls remain aligned.
+- Condition and Value stay enabled before field selection; incomplete rules do not filter rows.
+- Changing Field preserves the current Condition and Value.
+- Field and Condition use matching dark controlled listboxes with a highlighted selected row, checkmark, and gold open-state focus treatment so their appearance is consistent across operating systems.
+- Both lists support Arrow Up/Down, Enter, Space, and Escape keyboard interaction.
+- Value keeps the same compact control height and receives the shared gold focus treatment without opening an operating-system popup.
 - The Field list contains only ID and displayed originalData fields.
 - Empty/not-empty operators replace the value input with “No value required.”
 - Controls stack into one column on narrow screens.
@@ -170,10 +176,13 @@ Requirements:
 Requirements:
 
 - History is visually connected to its source row with a left accent.
+- A rounded tree branch links the expanded record column to the Audit history heading.
+- Only one history row is expanded at a time; clicking an expandable row or its arrow toggles it.
 - History has its own independently generated schema.
 - INSERT is green, UPDATE is blue, DELETE is red.
 - Null is rendered explicitly as italic “null.”
-- History scrolls horizontally if needed.
+- History is width-contained inside its parent record and shows its own styled horizontal scrollbar whenever the dynamic history schema is wider than the available space.
+- The history scroll region is keyboard-focusable and receives a visible focus treatment.
 
 ## Interaction state model
 
@@ -195,9 +204,9 @@ stateDiagram-v2
     HistoryOpen --> Records: collapse row
     Records --> LoadingRecords: change page or page size
     FilterOpen --> LoadingRecords: change page or page size
-    Records --> LoadingLabels: Refresh
-    FilterOpen --> LoadingLabels: Refresh
-    HistoryOpen --> LoadingLabels: Refresh
+    Records --> ChooseTable: Refresh
+    FilterOpen --> ChooseTable: Refresh
+    HistoryOpen --> ChooseTable: Refresh
 ```
 
 ## Data-to-UI ownership
