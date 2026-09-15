@@ -40,7 +40,7 @@ npm run build
 | Package                   | Manifest range | Installed | Required by current app? | Usage                                                                  |
 | ------------------------- | -------------- | --------: | ------------------------ | ---------------------------------------------------------------------- |
 | @angular/core             | ^21.2.0        |   21.2.23 | Yes                      | Components, dependency injection, lifecycle, application configuration |
-| @angular/common           | ^21.2.0        |   21.2.23 | Yes                      | DatePipe and HttpClient APIs                                           |
+| @angular/common           | ^21.2.0        |   21.2.23 | Yes                      | HttpClient APIs                                                        |
 | @angular/platform-browser | ^21.2.0        |   21.2.23 | Yes                      | bootstrapApplication                                                   |
 | @angular/router           | ^21.2.0        |   21.2.23 | Yes                      | Root and lazy audit routes                                             |
 | @angular/compiler         | ^21.2.0        |   21.2.23 | Keep                     | Standard Angular application dependency/toolchain compatibility        |
@@ -69,8 +69,7 @@ npm run build
 | Feature need                       | Package/API                                                               |
 | ---------------------------------- | ------------------------------------------------------------------------- |
 | Standalone component and injection | @angular/core                                                             |
-| Response date formatting           | DatePipe from @angular/common                                             |
-| JSON requests                      | HttpClient and HttpParams from @angular/common/http                       |
+| API requests                       | HttpClient and HttpParams from @angular/common/http                       |
 | Routing and lazy loading           | @angular/router                                                           |
 | API streams and cancellation       | Observable and Subscription from rxjs                                     |
 | Tests                              | Angular testing utilities, HttpTestingController, RxJS of, Vitest runtime |
@@ -88,7 +87,7 @@ Every implemented requirement is covered by the existing stack:
 - Subscription handling: RxJS.
 - Filters: native inputs/selects and component logic.
 - Pagination: response metadata and native buttons/select.
-- Styling: the existing Tailwind global import, HEIC global base rules, scoped audit presentation, and minimal component host CSS.
+- Styling: the existing Tailwind global import, HEIC global base rules, and component-scoped audit CSS.
 - Tests: Angular builder, Vitest, and jsdom.
 
 ### 2. Tailwind is declared twice
@@ -139,7 +138,7 @@ The npm report counted 603 packages across production, development, and optional
 
 ### 7. Audit UI styling does not require Tailwind utilities
 
-src/styles.css imports tailwindcss, but no project-level PostCSS configuration file was found. The Audit Viewer uses native CSS isolated by `@scope (app-audit-view)` and does not rely on Tailwind utility classes. Tailwind and its PostCSS packages remain documented because they were part of the supplied dependency set; no new styling dependency is needed.
+src/styles.css imports tailwindcss, but no project-level PostCSS configuration file was found. The Audit Viewer uses native CSS in `audit-view.css` with Angular component encapsulation and does not rely on Tailwind utility classes. Tailwind and its PostCSS packages remain documented because they were part of the supplied dependency set; no new styling dependency is needed.
 
 ## Dependency decision matrix
 
@@ -170,5 +169,5 @@ These are recommendations, not prerequisites for running the feature:
 - No missing direct dependency was reported.
 - npm audit reported zero known vulnerabilities on 2026-09-15.
 - The application compiles.
-- All 25 tests pass.
+- All 18 tests pass.
 - Production build completes without warnings.

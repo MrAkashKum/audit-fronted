@@ -213,7 +213,7 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TB
-    Labels[tableLabels JSON] --> Picker[Search dropdown]
+    Labels[tableLabels API response] --> Picker[Search dropdown]
     Selection[Selected label] --> Service[AuditService]
     Page[pageNo + pageSize] --> Service
     Service --> Response[Selected records response]

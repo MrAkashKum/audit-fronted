@@ -1,24 +1,22 @@
 export type AuditCellValue = string | number | boolean | null;
 export type DynamicAuditData = Record<string, AuditCellValue>;
-export type AuditRecordState = 'Current' | 'Audit only';
-export type AuditFieldType = 'text' | 'number' | 'date' | 'boolean';
-export type AuditFilterMatch = 'AND' | 'OR';
+export type AuditRecordState = "Current" | "Audit only";
+export type AuditFieldType = "text" | "number" | "date" | "boolean";
+export type AuditFilterMatch = "AND" | "OR";
 export type AuditFilterOperator =
-  | 'contains'
-  | 'startsWith'
-  | 'equals'
-  | 'notEquals'
-  | 'greaterThan'
-  | 'greaterThanOrEqual'
-  | 'lessThan'
-  | 'lessThanOrEqual'
-  | 'isEmpty'
-  | 'isNotEmpty';
+  | "contains"
+  | "startsWith"
+  | "equals"
+  | "notEquals"
+  | "greaterThan"
+  | "greaterThanOrEqual"
+  | "lessThan"
+  | "lessThanOrEqual"
+  | "isEmpty"
+  | "isNotEmpty";
 
 export interface DynamicAuditApiResponse {
   timestamp: string;
-  status: string;
-  code: string;
   message: string;
   data: DynamicAuditPage;
 }

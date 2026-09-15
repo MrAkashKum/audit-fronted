@@ -7,7 +7,7 @@
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
-    'Segoe UI',
+    "Segoe UI",
     sans-serif;
 }
 
@@ -245,34 +245,6 @@ button:focus-visible {
 
 .picker-state--error {
   color: #ffaaa0;
-}
-
-.response-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  min-height: 3.1rem;
-  margin-top: 1.3rem;
-  padding: 0.75rem 1.15rem;
-  border: 1px solid #70541f;
-  border-radius: 0.75rem;
-  color: #aaa49a;
-  background: #30291d;
-  font-size: 0.82rem;
-}
-
-.response-banner strong {
-  color: #f1c34f;
-}
-
-.response-banner > span {
-  width: 1px;
-  height: 1.25rem;
-  background: #705f3b;
-}
-
-.response-banner p {
-  margin: 0;
 }
 
 .records-panel {
@@ -912,7 +884,7 @@ td {
   border-left: 1px solid #625742;
   border-bottom: 1px solid #625742;
   border-bottom-left-radius: 0.85rem;
-  content: '';
+  content: "";
   pointer-events: none;
 }
 
@@ -1157,8 +1129,7 @@ td {
     justify-content: center;
   }
 
-  .records-toolbar,
-  .response-banner {
+  .records-toolbar {
     align-items: flex-start;
     flex-direction: column;
   }
