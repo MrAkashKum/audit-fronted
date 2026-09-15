@@ -202,6 +202,12 @@ describe("AuditView", () => {
       "DEPOT_CODE",
       "FLEET_STATUS",
     ]);
+    expect(component.columns.map((column) => column.label)).toEqual([
+      "Locomotive Code",
+      "Locomotive Name",
+      "Depot Code",
+      "Fleet Status",
+    ]);
     expect(component.filterFields.map((field) => field.key)).not.toContain(
       "COUNTRY_CODE",
     );

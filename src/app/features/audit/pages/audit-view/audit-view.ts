@@ -59,16 +59,6 @@ export class AuditView implements OnInit, OnDestroy {
     "REV",
     "REVTYPE",
   ]);
-  private readonly columnLabelOverrides: Record<string, string> = {
-    ACCOUNT_IDENTIFICATION: "Account",
-    BASE_UOM: "UOM",
-    TOTAL_AGGREGATED_QUANTITY: "Quantity",
-    LAST_LEDGER_ID_PROCESSED: "Last Ledger",
-    LOCOMOTIVE_CODE: "Locomotive",
-    LOCOMOTIVE_NAME: "Name",
-    DEPOT_CODE: "Depot",
-    CALENDAR_CODE: "Calendar",
-  };
   private readonly filterOperators: AuditFilterOperatorOption[] = [
     { value: "contains", label: "Contains" },
     { value: "equals", label: "Equals" },
@@ -1106,10 +1096,7 @@ export class AuditView implements OnInit, OnDestroy {
 
     return Array.from(keys, (key) => ({
       key,
-      label:
-        source === "originalData"
-          ? (this.columnLabelOverrides[key] ?? this.toColumnLabel(key))
-          : this.toColumnLabel(key),
+      label: this.toColumnLabel(key),
       dataType: this.inferColumnType(key, records, source),
     }));
   }
@@ -1157,8 +1144,18 @@ export class AuditView implements OnInit, OnDestroy {
 
   private toColumnLabel(key: string): string {
     return key
-      .replace(/_/g, " ")
-      .toLocaleLowerCase()
-      .replace(/\b\w/g, (character) => character.toLocaleUpperCase());
+      .trim()
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .split(/[\s_-]+/)
+      .filter(Boolean)
+      .map((word) => {
+        if (/^[A-Z0-9]+$/.test(word) && word.length <= 3) {
+          return word;
+        }
+
+        const normalizedWord = word.toLocaleLowerCase();
+        return `${normalizedWord.charAt(0).toLocaleUpperCase()}${normalizedWord.slice(1)}`;
+      })
+      .join(" ");
   }
 }
