@@ -1,0 +1,200 @@
+{
+  "timestamp": "2026-09-14T09:25:00Z",
+  "status": "SUCCESS",
+  "code": "2000",
+  "message": "Loco Singapore audit data loaded successfully",
+  "data": {
+    "pageNo": 0,
+    "pageSize": 10,
+    "numberOfElements": 3,
+    "totalElements": 3,
+    "totalPages": 1,
+    "hasPrevious": false,
+    "hasNext": false,
+    "rows": [
+      {
+        "id": 2001,
+        "originalRecordPresent": true,
+        "originalData": {
+          "ID": 2001,
+          "LOCOMOTIVE_CODE": "SG-L-001",
+          "LOCOMOTIVE_NAME": "Merlion One",
+          "DEPOT_CODE": "TJS",
+          "FLEET_STATUS": "AVAILABLE",
+          "LAST_UPDATED": "2026-08-28T09:35:12Z",
+          "VERSION": 2
+        },
+        "changeSummary": {
+          "totalRevisions": 3,
+          "insertCount": 1,
+          "updateCount": 2,
+          "deleteCount": 0,
+          "unknownCount": 0,
+          "firstRevision": 9001,
+          "latestRevision": 9204
+        },
+        "auditHistory": [
+          {
+            "sequenceNumber": 1,
+            "revision": 9001,
+            "revisionTypeCode": 0,
+            "operation": "INSERT",
+            "ID": 2001,
+            "REV": 9001,
+            "REVTYPE": 0,
+            "LOCOMOTIVE_CODE": "SG-L-001",
+            "LOCOMOTIVE_NAME": "Merlion One",
+            "DEPOT_CODE": "TJS",
+            "COUNTRY_CODE": "SG",
+            "FLEET_STATUS": "MAINTENANCE",
+            "MODEL": "C30-7",
+            "MANUFACTURER": "GE",
+            "COMMISSIONED_ON": "2024-02-20"
+          },
+          {
+            "sequenceNumber": 2,
+            "revision": 9112,
+            "revisionTypeCode": 1,
+            "operation": "UPDATE",
+            "ID": 2001,
+            "REV": 9112,
+            "REVTYPE": 1,
+            "LOCOMOTIVE_CODE": "SG-L-001",
+            "LOCOMOTIVE_NAME": "Merlion One",
+            "DEPOT_CODE": "TJS",
+            "COUNTRY_CODE": "SG",
+            "FLEET_STATUS": "IN_SERVICE",
+            "MODEL": "C30-7",
+            "MANUFACTURER": "GE",
+            "COMMISSIONED_ON": "2024-02-20"
+          },
+          {
+            "sequenceNumber": 3,
+            "revision": 9204,
+            "revisionTypeCode": 1,
+            "operation": "UPDATE",
+            "ID": 2001,
+            "REV": 9204,
+            "REVTYPE": 1,
+            "LOCOMOTIVE_CODE": "SG-L-001",
+            "LOCOMOTIVE_NAME": "Merlion One",
+            "DEPOT_CODE": "TJS",
+            "COUNTRY_CODE": "SG",
+            "FLEET_STATUS": "AVAILABLE",
+            "MODEL": "C30-7",
+            "MANUFACTURER": "GE",
+            "COMMISSIONED_ON": "2024-02-20"
+          }
+        ]
+      },
+      {
+        "id": 2002,
+        "originalRecordPresent": true,
+        "originalData": {
+          "ID": 2002,
+          "LOCOMOTIVE_CODE": "SG-L-002",
+          "LOCOMOTIVE_NAME": "Harbour Runner",
+          "DEPOT_CODE": "PSA",
+          "FLEET_STATUS": "IN_SERVICE",
+          "LAST_UPDATED": "2026-09-09T12:08:41Z",
+          "VERSION": 1
+        },
+        "changeSummary": {
+          "totalRevisions": 2,
+          "insertCount": 1,
+          "updateCount": 1,
+          "deleteCount": 0,
+          "unknownCount": 0,
+          "firstRevision": 9050,
+          "latestRevision": 9250
+        },
+        "auditHistory": [
+          {
+            "sequenceNumber": 1,
+            "revision": 9050,
+            "revisionTypeCode": 0,
+            "operation": "INSERT",
+            "ID": 2002,
+            "REV": 9050,
+            "REVTYPE": 0,
+            "LOCOMOTIVE_CODE": "SG-L-002",
+            "LOCOMOTIVE_NAME": "Harbour Runner",
+            "DEPOT_CODE": "PSA",
+            "COUNTRY_CODE": "SG",
+            "FLEET_STATUS": "AVAILABLE",
+            "MODEL": "ES44AC",
+            "MANUFACTURER": "GE",
+            "COMMISSIONED_ON": "2025-06-18"
+          },
+          {
+            "sequenceNumber": 2,
+            "revision": 9250,
+            "revisionTypeCode": 1,
+            "operation": "UPDATE",
+            "ID": 2002,
+            "REV": 9250,
+            "REVTYPE": 1,
+            "LOCOMOTIVE_CODE": "SG-L-002",
+            "LOCOMOTIVE_NAME": "Harbour Runner",
+            "DEPOT_CODE": "PSA",
+            "COUNTRY_CODE": "SG",
+            "FLEET_STATUS": "IN_SERVICE",
+            "MODEL": "ES44AC",
+            "MANUFACTURER": "GE",
+            "COMMISSIONED_ON": "2025-06-18"
+          }
+        ]
+      },
+      {
+        "id": 1998,
+        "originalRecordPresent": false,
+        "originalData": null,
+        "changeSummary": {
+          "totalRevisions": 2,
+          "insertCount": 1,
+          "updateCount": 0,
+          "deleteCount": 1,
+          "unknownCount": 0,
+          "firstRevision": 9008,
+          "latestRevision": 9251
+        },
+        "auditHistory": [
+          {
+            "sequenceNumber": 1,
+            "revision": 9008,
+            "revisionTypeCode": 0,
+            "operation": "INSERT",
+            "ID": 1998,
+            "REV": 9008,
+            "REVTYPE": 0,
+            "LOCOMOTIVE_CODE": "SG-L-LEGACY",
+            "LOCOMOTIVE_NAME": "Jurong Pioneer",
+            "DEPOT_CODE": "JUR",
+            "COUNTRY_CODE": "SG",
+            "FLEET_STATUS": "RETIRED",
+            "MODEL": "C30-7",
+            "MANUFACTURER": "GE",
+            "COMMISSIONED_ON": "1998-02-20"
+          },
+          {
+            "sequenceNumber": 2,
+            "revision": 9251,
+            "revisionTypeCode": 2,
+            "operation": "DELETE",
+            "ID": 1998,
+            "REV": 9251,
+            "REVTYPE": 2,
+            "LOCOMOTIVE_CODE": "SG-L-LEGACY",
+            "LOCOMOTIVE_NAME": "Jurong Pioneer",
+            "DEPOT_CODE": "JUR",
+            "COUNTRY_CODE": "SG",
+            "FLEET_STATUS": "RETIRED",
+            "MODEL": "C30-7",
+            "MANUFACTURER": "GE",
+            "COMMISSIONED_ON": "1998-02-20"
+          }
+        ]
+      }
+    ]
+  }
+}

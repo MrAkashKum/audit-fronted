@@ -1,0 +1,265 @@
+<main class="audit-page">
+  <section class="table-selector" aria-labelledby="audit-table-heading">
+    <p id="audit-table-heading" class="table-selector__label">Audit table</p>
+
+    <div class="table-selector__controls">
+      <div class="table-search-wrap">
+        <label class="table-search" for="audit-table-search">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path>
+          </svg>
+          <input
+            id="audit-table-search"
+            type="search"
+            placeholder="Search by table name..."
+            autocomplete="off"
+            role="combobox"
+            aria-controls="audit-table-options"
+            [attr.aria-expanded]="isTableMenuOpen"
+            [value]="tableSearchQuery"
+            (focus)="isTableMenuOpen = true"
+            (input)="onTableSearch($event)"
+          />
+          <span class="table-count">{{ filteredTableLabels.length }} tables</span>
+        </label>
+
+        @if (isTableMenuOpen) {
+          <div id="audit-table-options" class="table-menu" role="listbox">
+            @if (areTableLabelsLoading) {
+              <div class="table-menu__state" aria-live="polite">
+                <span class="spinner spinner--small" aria-hidden="true"></span>
+                Loading audit tables…
+              </div>
+            } @else if (tableLabelsErrorMessage) {
+              <div class="table-menu__state table-menu__state--error" role="alert">
+                <span>{{ tableLabelsErrorMessage }}</span>
+                <button type="button" class="table-retry" (click)="loadAuditTableLabels()">
+                  Retry
+                </button>
+              </div>
+            } @else if (filteredTableLabels.length === 0) {
+              <div class="table-menu__state">No tables match “{{ tableSearchQuery }}”.</div>
+            } @else {
+              @for (tableLabel of filteredTableLabels; track tableLabel) {
+                <button
+                  type="button"
+                  class="table-option"
+                  role="option"
+                  [attr.aria-selected]="selectedTableLabel === tableLabel"
+                  [class.table-option--selected]="selectedTableLabel === tableLabel"
+                  (click)="selectTable(tableLabel)"
+                >
+                  <span class="table-option__icon">{{ getTableInitials(tableLabel) }}</span>
+                  <span class="table-option__text">
+                    <strong>{{ getTableDisplayName(tableLabel) }}</strong>
+                    <small>{{ tableLabel }}</small>
+                  </span>
+
+                  @if (selectedTableLabel === tableLabel) {
+                    <span class="current-table">Current</span>
+                    <span class="current-check" aria-hidden="true">✓</span>
+                  }
+                </button>
+              }
+            }
+          </div>
+        }
+      </div>
+
+      <button
+        type="button"
+        class="refresh-button"
+        [disabled]="isLoading || areTableLabelsLoading"
+        (click)="refreshAuditPage()"
+      >
+        <span aria-hidden="true">↻</span>
+        Refresh
+      </button>
+    </div>
+  </section>
+
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Operations / Audit</p>
+      <h1>Account metal audit</h1>
+      <p class="subtitle">Review the current record and every stored revision.</p>
+    </div>
+
+    @if (response; as auditResponse) {
+      <div
+        class="request-status"
+        [class.request-status--success]="auditResponse.status === 'SUCCESS'"
+      >
+        <span class="status-dot" aria-hidden="true"></span>
+        {{ auditResponse.status }} · {{ auditResponse.code }}
+      </div>
+    }
+  </header>
+
+  @if (isLoading) {
+    <section class="state-card" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <div>
+        <h2>Loading audit records</h2>
+        <p>Retrieving the latest change history…</p>
+      </div>
+    </section>
+  } @else if (errorMessage) {
+    <section class="state-card state-card--error" role="alert">
+      <div>
+        <h2>Something went wrong</h2>
+        <p>{{ errorMessage }}</p>
+      </div>
+      <button type="button" (click)="loadAuditRecords()">Try again</button>
+    </section>
+  } @else if (response; as auditResponse) {
+    <section class="summary-grid" aria-label="Response summary">
+      <article class="summary-card">
+        <span>Total records</span>
+        <strong>{{ auditResponse.data.totalElements }}</strong>
+      </article>
+      <article class="summary-card">
+        <span>Page</span>
+        <strong>{{ auditResponse.data.pageNo + 1 }} / {{ auditResponse.data.totalPages }}</strong>
+      </article>
+      <article class="summary-card summary-card--wide">
+        <span>Last response</span>
+        <strong>{{ auditResponse.timestamp | date: 'medium' }}</strong>
+        <small>{{ auditResponse.message }}</small>
+      </article>
+    </section>
+
+    @if (auditResponse.data.rows.length === 0) {
+      <section class="state-card">
+        <div>
+          <h2>No audit records</h2>
+          <p>The API returned an empty page.</p>
+        </div>
+      </section>
+    } @else {
+      <section class="record-list" aria-label="Audit records">
+        @for (record of auditResponse.data.rows; track record.id) {
+          <article class="record-card">
+            <header class="record-header">
+              <div>
+                <p class="record-kicker">Record</p>
+                <h2>#{{ record.id }}</h2>
+              </div>
+              <div class="record-tags">
+                <span>{{ record.originalData.METAL_CODE }}</span>
+                <span>{{ record.originalData.BASE_UOM }}</span>
+                @if (record.originalRecordPresent) {
+                  <span class="tag--success">Original present</span>
+                }
+              </div>
+            </header>
+
+            <div class="record-body">
+              <section class="current-record">
+                <div class="section-title">
+                  <h3>Current record</h3>
+                  <span>Version {{ record.originalData.VERSION }}</span>
+                </div>
+                <dl class="data-grid">
+                  <div>
+                    <dt>Account ID</dt>
+                    <dd>{{ record.originalData.ACCOUNT_IDENTIFICATION }}</dd>
+                  </div>
+                  <div>
+                    <dt>Last ledger</dt>
+                    <dd>{{ record.originalData.LAST_LEDGER_ID_PROCESSED }}</dd>
+                  </div>
+                  <div>
+                    <dt>Quantity</dt>
+                    <dd>{{ record.originalData.TOTAL_AGGREGATED_QUANTITY | number }}</dd>
+                  </div>
+                  <div>
+                    <dt>Updated by</dt>
+                    <dd>{{ record.originalData.UPDATED_BY ?? '—' }}</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section class="change-summary">
+                <div class="section-title">
+                  <h3>Change summary</h3>
+                  <span>{{ record.changeSummary.totalRevisions }} revision(s)</span>
+                </div>
+                <div class="change-counts">
+                  <span class="count count--insert"
+                    >{{ record.changeSummary.insertCount }} inserted</span
+                  >
+                  <span class="count count--update"
+                    >{{ record.changeSummary.updateCount }} updated</span
+                  >
+                  <span class="count count--delete"
+                    >{{ record.changeSummary.deleteCount }} deleted</span
+                  >
+                </div>
+                <p>
+                  Revision {{ record.changeSummary.firstRevision }}
+                  <span aria-hidden="true">→</span>
+                  {{ record.changeSummary.latestRevision }}
+                </p>
+              </section>
+            </div>
+
+            <section class="history-section">
+              <div class="section-title">
+                <h3>Audit history</h3>
+                <span>Oldest to newest</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Sequence</th>
+                      <th scope="col">Revision</th>
+                      <th scope="col">Operation</th>
+                      <th scope="col">Ledger</th>
+                      <th scope="col">Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (history of record.auditHistory; track history.revision) {
+                      <tr>
+                        <td>#{{ history.sequenceNumber }}</td>
+                        <td>{{ history.revision }}</td>
+                        <td>
+                          <span
+                            class="operation"
+                            [class.operation--insert]="history.operation === 'INSERT'"
+                            [class.operation--update]="history.operation === 'UPDATE'"
+                            [class.operation--delete]="history.operation === 'DELETE'"
+                          >
+                            {{ history.operation }}
+                          </span>
+                        </td>
+                        <td>{{ history.LAST_LEDGER_ID_PROCESSED }}</td>
+                        <td>{{ history.TOTAL_AGGREGATED_QUANTITY | number }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </article>
+        }
+      </section>
+    }
+
+    <footer class="pagination-summary">
+      Showing {{ auditResponse.data.numberOfElements }} of
+      {{ auditResponse.data.totalElements }} records
+      <span>Previous: {{ auditResponse.data.hasPrevious ? 'Yes' : 'No' }}</span>
+      <span>Next: {{ auditResponse.data.hasNext ? 'Yes' : 'No' }}</span>
+    </footer>
+  }
+</main>

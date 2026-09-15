@@ -1,0 +1,127 @@
+{
+  "timestamp": "2026-09-14T09:25:00Z",
+  "status": "SUCCESS",
+  "code": "2000",
+  "message": "Request completed successfully",
+  "data": {
+    "pageNo": 0,
+    "pageSize": 10,
+    "numberOfElements": 2,
+    "totalElements": 2,
+    "totalPages": 1,
+    "hasPrevious": false,
+    "hasNext": false,
+    "rows": [
+      {
+        "id": 1002,
+        "originalRecordPresent": true,
+        "originalData": {
+          "ID": 1002,
+          "CREATED_BY": null,
+          "CREATED_ON": null,
+          "UPDATED_BY": null,
+          "UPDATED_ON": null,
+          "VERSION": 1,
+          "ACCOUNT_IDENTIFICATION": 2956,
+          "BASE_UOM": "FOZ",
+          "LAST_LEDGER_ID_PROCESSED": 4006,
+          "METAL_CODE": "LARGE BAR",
+          "TOTAL_AGGREGATED_QUANTITY": 0
+        },
+        "changeSummary": {
+          "totalRevisions": 2,
+          "insertCount": 1,
+          "updateCount": 1,
+          "deleteCount": 0,
+          "unknownCount": 0,
+          "firstRevision": 9063,
+          "latestRevision": 9071
+        },
+        "auditHistory": [
+          {
+            "sequenceNumber": 1,
+            "revision": 9063,
+            "revisionTypeCode": 0,
+            "operation": "INSERT",
+            "ID": 1002,
+            "REV": 9063,
+            "REVTYPE": 0,
+            "CREATED_BY": null,
+            "CREATED_ON": null,
+            "UPDATED_BY": null,
+            "UPDATED_ON": null,
+            "ACCOUNT_IDENTIFICATION": 2956,
+            "BASE_UOM": "FOZ",
+            "LAST_LEDGER_ID_PROCESSED": 4004,
+            "METAL_CODE": "LARGE BAR",
+            "TOTAL_AGGREGATED_QUANTITY": 801
+          },
+          {
+            "sequenceNumber": 2,
+            "revision": 9071,
+            "revisionTypeCode": 1,
+            "operation": "UPDATE",
+            "ID": 1002,
+            "REV": 9071,
+            "REVTYPE": 1,
+            "CREATED_BY": null,
+            "CREATED_ON": null,
+            "UPDATED_BY": null,
+            "UPDATED_ON": null,
+            "ACCOUNT_IDENTIFICATION": 2956,
+            "BASE_UOM": "FOZ",
+            "LAST_LEDGER_ID_PROCESSED": 4006,
+            "METAL_CODE": "LARGE BAR",
+            "TOTAL_AGGREGATED_QUANTITY": 0
+          }
+        ]
+      },
+      {
+        "id": 1003,
+        "originalRecordPresent": true,
+        "originalData": {
+          "ID": 1003,
+          "CREATED_BY": null,
+          "CREATED_ON": null,
+          "UPDATED_BY": null,
+          "UPDATED_ON": null,
+          "VERSION": 0,
+          "ACCOUNT_IDENTIFICATION": 2957,
+          "BASE_UOM": "FOZ",
+          "LAST_LEDGER_ID_PROCESSED": 4006,
+          "METAL_CODE": "LARGE BAR",
+          "TOTAL_AGGREGATED_QUANTITY": 801
+        },
+        "changeSummary": {
+          "totalRevisions": 1,
+          "insertCount": 1,
+          "updateCount": 0,
+          "deleteCount": 0,
+          "unknownCount": 0,
+          "firstRevision": 9071,
+          "latestRevision": 9071
+        },
+        "auditHistory": [
+          {
+            "sequenceNumber": 1,
+            "revision": 9071,
+            "revisionTypeCode": 0,
+            "operation": "INSERT",
+            "ID": 1003,
+            "REV": 9071,
+            "REVTYPE": 0,
+            "CREATED_BY": null,
+            "CREATED_ON": null,
+            "UPDATED_BY": null,
+            "UPDATED_ON": null,
+            "ACCOUNT_IDENTIFICATION": 2957,
+            "BASE_UOM": "FOZ",
+            "LAST_LEDGER_ID_PROCESSED": 4006,
+            "METAL_CODE": "LARGE BAR",
+            "TOTAL_AGGREGATED_QUANTITY": 801
+          }
+        ]
+      }
+    ]
+  }
+}

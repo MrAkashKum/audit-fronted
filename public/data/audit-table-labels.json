@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-09-14T04:30:00Z",
+  "status": "SUCCESS",
+  "code": "2000",
+  "message": "Request completed successfully",
+  "data": {
+    "tableLabels": ["Holiday Calendar", "Loco Singapore", "Position Balance"]
+  }
+}
