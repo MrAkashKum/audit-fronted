@@ -182,7 +182,7 @@ Values are compared as:
 
 ## Pagination ownership
 
-The API response is authoritative for:
+For a real API, the response is authoritative for:
 
 - pageNo.
 - pageSize.
@@ -192,7 +192,7 @@ The API response is authoritative for:
 - hasPrevious.
 - hasNext.
 
-The component calculates only button targets and the visible range. Static JSON fixtures always return their stored rows, so a production backend is responsible for true server-side paging.
+The component calculates only button targets and the visible range. The current service includes a fixture-only adapter that slices static JSON rows and returns consistent page metadata for the requested pageNo/pageSize. Remove that adapter when a production backend performs server-side paging.
 
 ## State reset boundaries
 

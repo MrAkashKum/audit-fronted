@@ -11,6 +11,7 @@ The implementation uses only the dependencies already declared in this project.
 - Refresh resets the selected table, records, filters, expansion, and pagination.
 - Table-specific JSON sources for Holiday Calendar, Loco Singapore, and Position Balance.
 - Main columns generated from originalData.
+- Sortable main headers with ascending, descending, and unsorted states.
 - Expanded audit-history columns generated independently from auditHistory.
 - Current and audit-only record states.
 - Typed condition builder with AND/OR matching.
@@ -18,6 +19,7 @@ The implementation uses only the dependencies already declared in this project.
 - Text, numeric, date, boolean, empty, and non-empty comparisons.
 - Filters applied to the records on the current API page.
 - Dynamic pageNo, pageSize, totalElements, totalPages, and navigation controls.
+- Keyboard-operable table search with Arrow keys, Enter, and Escape.
 - Loading, empty, success, and error states.
 - Responsive dark audit-console design.
 - Unit and interaction tests using Angular's Vitest runner.
@@ -65,7 +67,7 @@ npm test -- --watch=false
 npm run build
 ```
 
-The current baseline is 12 passing tests and a warning-free production build.
+The current baseline is 16 passing tests and a warning-free production build.
 
 ## Routes
 
@@ -160,7 +162,7 @@ The service method accepts tableLabel, pageNo, and pageSize and sends pageNo/pag
 - First, previous, next, and last buttons calculate a zero-based target page.
 - The displayed range is pageNo × pageSize + 1 through the last element on that page, capped by totalElements.
 
-The bundled data files are static fixtures, so they demonstrate the response contract but do not produce different server-side pages. A real endpoint should use the same request parameters and return the requested page metadata and rows.
+The bundled data files are static fixtures. The service adapter slices their rows and creates consistent page metadata locally so page-size behavior remains functional. A real endpoint should use the same request parameters and return the requested page metadata and rows; remove the fixture adapter when that endpoint is connected.
 
 ## Adding another audit table
 
@@ -200,6 +202,8 @@ See [Dependency audit](docs/DEPENDENCIES.md) for installed versions, actual usag
 
 - Native buttons, inputs, and selects are used.
 - The table selector exposes combobox/listbox semantics.
+- Table options can be searched by API label or visible display name and selected with the keyboard.
+- Sort state is exposed through aria-sort on each sortable header.
 - Expanded-row buttons expose aria-expanded and record-specific labels.
 - Loading and empty states use polite live announcements.
 - Request failures use alert semantics.

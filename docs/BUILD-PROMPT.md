@@ -124,7 +124,8 @@ Core behavior
 2. Table selector
 
 - Provide a searchable combobox/listbox.
-- Filter label options case-insensitively.
+- Filter both raw labels and friendly display names case-insensitively.
+- Support Arrow Up/Down, Enter, and Escape in the combobox.
 - Show table initials, friendly names, source labels, and total table count.
 - Mark the selected option as Current with a check.
 - Selecting a table closes the dropdown, clears incompatible filters, resets pageNo to 0, and requests records.
@@ -147,16 +148,17 @@ Core behavior
   - DEPOT_CODE -> Depot
   - CALENDAR_CODE -> Calendar
 - Show missing values as an em dash.
+- Make ID, every dynamic main column, Revisions, and Record state sortable with asc/desc/clear cycling.
 
 4. Dynamic audit history
 
 - Derive history columns separately from auditHistory.
 - Exclude sequenceNumber, revision, revisionTypeCode, operation, ID, REV, and REVTYPE from the dynamic history set.
 - Always show dedicated Operation and Revision columns.
-- Expand/collapse history per record.
+- Expand/collapse history when more than one revision exists; omit the redundant control for one-revision rows.
 - Support INSERT, UPDATE, and DELETE badge styles.
 - Render null history values explicitly as “null.”
-- originalRecordPresent false must display Audit only and remain expandable.
+- originalRecordPresent false must display Audit only and remain expandable when multiple revisions exist.
 
 5. Source-only filter builder
 
@@ -225,6 +227,9 @@ AuditService.getAuditRecordsForTable must accept:
 - pageSize, default 10
 
 Send pageNo and pageSize as HttpParams.
+
+- Offer page sizes 10, 25, 50, and 100.
+- While endpoints are static JSON fixtures, normalize and slice the fixture response locally; remove this adapter for a real paginated backend.
 
 The component must:
 

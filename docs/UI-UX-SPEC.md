@@ -72,7 +72,8 @@ Requirements:
 - Options display initials, friendly display name, and source label.
 - Hover uses a slightly lighter dark surface.
 - Selected option uses an olive surface, orange left accent, Current badge, and check mark.
-- Search filters labels case-insensitively.
+- Search filters both source labels and friendly display names case-insensitively.
+- Arrow Up/Down moves through results, Enter selects, and Escape closes the menu.
 - The count displays total available tables.
 
 ## State C: open filter builder
@@ -142,11 +143,14 @@ Requirements:
 
 - Table schema changes after every table selection.
 - ID, Revisions, and Record State remain dedicated columns.
+- ID, business columns, Revisions, and Record State cycle through ascending, descending, and unsorted states.
 - Business columns come from originalData.
 - Missing current data displays an em dash.
 - Wide schemas scroll horizontally instead of shrinking text below readability.
 - Revision count uses a compact gold indicator.
 - State uses both text and a colored dot.
+- Only records with more than one revision show an expansion control.
+- Page-size choices are 10, 25, 50, and 100.
 
 ## Expanded revision history
 
@@ -287,6 +291,7 @@ flowchart TB
 - [x] Table and history columns are independent and dynamic.
 - [x] Filter builder matches the supplied layout hierarchy.
 - [x] Source-only field restriction is visible and tested.
+- [x] Record headers are sortable and expose their direction.
 - [x] Pagination is aligned to the lower right on desktop.
 - [x] Refresh clears the selection.
 - [x] Narrow layouts stack without overlap.

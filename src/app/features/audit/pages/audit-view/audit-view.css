@@ -28,7 +28,7 @@ button {
 }
 
 .audit-view-page {
-  width: min(1540px, calc(100% - 3rem));
+  width: calc(100% - 3rem);
   margin: 0 auto;
   padding: 2.25rem 0 4rem;
 }
@@ -160,7 +160,8 @@ button {
   text-align: left;
 }
 
-.table-option:hover {
+.table-option:hover,
+.table-option--active {
   background: #34312c;
 }
 
@@ -252,11 +253,6 @@ button {
 
 .response-banner p {
   margin: 0;
-}
-
-.response-banner time {
-  margin-left: auto;
-  color: #817b73;
 }
 
 .records-panel {
@@ -552,6 +548,37 @@ th {
   font-weight: 850;
   letter-spacing: 0.035em;
   text-transform: uppercase;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.sort-button:hover,
+.sort-button:focus-visible {
+  color: #f6cf69;
+}
+
+.sort-button:focus-visible {
+  outline: 2px solid #f3c557;
+  outline-offset: 0.35rem;
+}
+
+.sort-indicator {
+  display: inline-block;
+  min-width: 0.75rem;
+  color: #aaa49a;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 th:first-child,
@@ -874,10 +901,6 @@ td {
   .response-banner {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .response-banner time {
-    margin-left: 0;
   }
 
   .pagination {

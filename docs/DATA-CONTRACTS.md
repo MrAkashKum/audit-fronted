@@ -135,6 +135,8 @@ Consistency rules:
 - totalPages should normally equal ceiling(totalElements / pageSize).
 - An empty result may use pageNo 0, numberOfElements 0, totalElements 0, and totalPages 0.
 
+The bundled files contain complete demonstration datasets. AuditService slices those fixture rows and recalculates this metadata for the requested pageNo/pageSize. A production endpoint should return an already-paginated response, at which point the fixture adapter can be removed.
+
 ## Audit record group
 
 | Field                 | Type             | Meaning                                            |

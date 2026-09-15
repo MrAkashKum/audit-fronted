@@ -98,7 +98,8 @@ Needs to connect the reusable UI to a real paginated API and add audit entities 
 ### FR-03: Searchable table selection
 
 - Opening or typing in the table search shows matching options.
-- Matching is case-insensitive.
+- Matching is case-insensitive across both source labels and visible display names.
+- Arrow Up/Down moves through options, Enter selects, and Escape closes the menu.
 - Each option shows initials, a display name, and its source label.
 - The selected option shows Current and a confirmation mark.
 - Selection closes the menu and starts at page 0 with the default page size.
@@ -124,6 +125,7 @@ The request must include pageNo and pageSize query parameters.
 - Humanize unknown field names.
 - Allow explicit presentation labels for known fields.
 - Render missing values with an em dash.
+- Every displayed source column, ID, Revisions, and Record state supports ascending, descending, and cleared sorting.
 
 ### FR-06: Dynamic history schema
 
@@ -136,11 +138,11 @@ The request must include pageNo and pageSize query parameters.
 
 - originalRecordPresent true maps to Current.
 - originalRecordPresent false maps to Audit only.
-- Audit-only records may have null originalData and must remain expandable.
+- Audit-only records may have null originalData and remain expandable when multiple revisions exist.
 
 ### FR-08: Row expansion
 
-- Every visible row has an expansion control.
+- Rows with multiple revisions have an expansion control; one-revision rows do not show a redundant control.
 - Expanded content shows the number of revisions and the record ID.
 - Each history row shows operation, revision, and the dynamic revision snapshot fields.
 - INSERT, UPDATE, and DELETE use visually distinct labels.
@@ -199,6 +201,7 @@ The component infers type from the first non-null source value, with ISO/date-fi
 - First and Previous are disabled on page 0.
 - Next and Last are disabled on the final page.
 - Page-size changes request page 0.
+- Page-size choices are 10, 25, 50, and 100.
 - Navigation keeps complete filter conditions but reapplies them only to the returned page.
 - The visible range is derived from pageNo, pageSize, numberOfElements, and totalElements.
 
@@ -219,7 +222,7 @@ Refresh must:
 - While loading records, show an activity indicator and loading text.
 - On failure, show an alert and Retry.
 - If the selected response has no visible or matching records, show an empty result message.
-- On success, show the selected table, response message, and timestamp.
+- On fixture success, show a Sample data banner with the response message.
 
 ## 8. Data requirements
 

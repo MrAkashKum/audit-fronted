@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { map, Observable } from 'rxjs';
 
 import { AuditApiResponse } from '../models/audit-record.model';
 import { AuditTableLabelsApiResponse } from '../models/audit-table-label.model';
@@ -30,7 +30,9 @@ export class AuditService {
 
     const params = new HttpParams().set('pageNo', pageNo).set('pageSize', pageSize);
 
-    return this.http.get<DynamicAuditApiResponse>(sourceUrl, { params });
+    return this.http
+      .get<DynamicAuditApiResponse>(sourceUrl, { params })
+      .pipe(map((response) => this.createFixturePage(response, pageNo, pageSize)));
   }
 
   getAuditTableLabels(): Observable<AuditTableLabelsApiResponse> {
@@ -43,5 +45,38 @@ export class AuditService {
       .toLocaleLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
+  }
+
+  /**
+   * The current endpoints are static JSON fixtures, so the browser must apply the
+   * requested page metadata locally. Remove this adapter when sourceUrl is replaced
+   * by a backend endpoint that already performs server-side pagination.
+   */
+  private createFixturePage(
+    response: DynamicAuditApiResponse,
+    requestedPageNo: number,
+    requestedPageSize: number,
+  ): DynamicAuditApiResponse {
+    const allRows = response.data.rows;
+    const totalElements = allRows.length;
+    const totalPages = totalElements === 0 ? 0 : Math.ceil(totalElements / requestedPageSize);
+    const pageNo = totalPages === 0 ? 0 : Math.min(Math.max(requestedPageNo, 0), totalPages - 1);
+    const startIndex = pageNo * requestedPageSize;
+    const rows = allRows.slice(startIndex, startIndex + requestedPageSize);
+
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        pageNo,
+        pageSize: requestedPageSize,
+        numberOfElements: rows.length,
+        totalElements,
+        totalPages,
+        hasPrevious: pageNo > 0,
+        hasNext: pageNo < totalPages - 1,
+        rows,
+      },
+    };
   }
 }

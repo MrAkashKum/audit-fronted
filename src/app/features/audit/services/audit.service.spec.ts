@@ -74,4 +74,44 @@ describe('AuditService', () => {
     expect(request.request.params.get('pageSize')).toBe('10');
     request.flush({ data: { rows: [] } });
   });
+
+  it('applies requested pagination metadata to static JSON fixtures', () => {
+    let pageNo = -1;
+    let pageSize = -1;
+    let rowIds: number[] = [];
+
+    service.getAuditRecordsForTable('Position Balance', 1, 2).subscribe((response) => {
+      pageNo = response.data.pageNo;
+      pageSize = response.data.pageSize;
+      rowIds = response.data.rows.map((row) => Number(row.id));
+    });
+
+    const request = httpTesting.expectOne(
+      (candidate) => candidate.url === 'data/audit-records.json',
+    );
+    request.flush({
+      timestamp: '2026-09-14T09:25:00Z',
+      status: 'SUCCESS',
+      code: '2000',
+      message: 'Request completed successfully',
+      data: {
+        pageNo: 0,
+        pageSize: 10,
+        numberOfElements: 3,
+        totalElements: 3,
+        totalPages: 1,
+        hasPrevious: false,
+        hasNext: false,
+        rows: [
+          { id: 1001, originalData: {}, changeSummary: {}, auditHistory: [] },
+          { id: 1002, originalData: {}, changeSummary: {}, auditHistory: [] },
+          { id: 1003, originalData: {}, changeSummary: {}, auditHistory: [] },
+        ],
+      },
+    });
+
+    expect(pageNo).toBe(1);
+    expect(pageSize).toBe(2);
+    expect(rowIds).toEqual([1003]);
+  });
 });

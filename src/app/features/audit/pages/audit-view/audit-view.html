@@ -3,7 +3,7 @@
     <p id="audit-table-title" class="field-label">Audit table</p>
 
     <div class="picker-controls">
-      <div class="picker-search-wrap">
+      <div class="picker-search-wrap" (focusout)="onTablePickerFocusOut($event)">
         <label class="picker-search" for="audit-view-table-search">
           <svg
             aria-hidden="true"
@@ -21,11 +21,14 @@
             role="combobox"
             autocomplete="off"
             placeholder="Search by table name..."
+            aria-autocomplete="list"
             aria-controls="audit-view-table-options"
             [attr.aria-expanded]="isTableMenuOpen"
+            [attr.aria-activedescendant]="getActiveTableOptionId()"
             [value]="tableSearchQuery"
-            (focus)="isTableMenuOpen = true"
+            (focus)="onTableSearchFocus()"
             (input)="onTableSearch($event)"
+            (keydown)="onTableSearchKeydown($event)"
           />
           <span class="table-count">{{ tableLabels.length }} tables</span>
         </label>
@@ -35,17 +38,22 @@
             @if (areTableLabelsLoading) {
               <div class="picker-state">Loading audit tables…</div>
             } @else if (tableLabelsErrorMessage) {
-              <div class="picker-state picker-state--error">{{ tableLabelsErrorMessage }}</div>
+              <div class="picker-state picker-state--error">
+                {{ tableLabelsErrorMessage }}
+              </div>
             } @else if (filteredTableLabels.length === 0) {
               <div class="picker-state">No tables match “{{ tableSearchQuery }}”.</div>
             } @else {
-              @for (tableLabel of filteredTableLabels; track tableLabel) {
+              @for (tableLabel of filteredTableLabels; track tableLabel; let optionIndex = $index) {
                 <button
+                  [id]="'audit-view-table-option-' + optionIndex"
                   type="button"
                   class="table-option"
                   role="option"
                   [attr.aria-selected]="selectedTableLabel === tableLabel"
                   [class.table-option--selected]="selectedTableLabel === tableLabel"
+                  [class.table-option--active]="activeTableOptionIndex === optionIndex"
+                  (mouseenter)="setActiveTableOption(optionIndex)"
                   (click)="selectTable(tableLabel)"
                 >
                   <span class="table-initials">{{ getTableInitials(tableLabel) }}</span>
@@ -90,12 +98,9 @@
   } @else {
     @if (recordsResponse; as apiResponse) {
       <section class="response-banner">
-        <strong>{{ selectedTableLabel }}</strong>
+        <strong>Sample data</strong>
         <span aria-hidden="true"></span>
-        <p>{{ apiResponse.message }}</p>
-        <time [attr.datetime]="apiResponse.timestamp">
-          {{ apiResponse.timestamp | date: 'medium' }}
-        </time>
+        <p>{{ apiResponse.message }} — Showing configured JSON demonstration data.</p>
       </section>
     }
 
@@ -232,7 +237,6 @@
           </p>
         </section>
       }
-
       @if (isRecordsLoading) {
         <div class="panel-state" aria-live="polite">
           <span class="loading-ring" aria-hidden="true"></span>
@@ -254,27 +258,65 @@
             <thead>
               <tr>
                 <th scope="col"><span class="visually-hidden">Expand</span></th>
-                <th scope="col">ID</th>
+                <th scope="col" [attr.aria-sort]="getAriaSort('ID')">
+                  <button type="button" class="sort-button" (click)="toggleSort('ID')">
+                    ID
+                    <span class="sort-indicator" aria-hidden="true">
+                      {{ getSortIndicator('ID') }}
+                    </span>
+                  </button>
+                </th>
                 @for (column of columns; track column.key) {
-                  <th scope="col">{{ column.label }}</th>
+                  <th scope="col" [attr.aria-sort]="getAriaSort(column.key)">
+                    <button type="button" class="sort-button" (click)="toggleSort(column.key)">
+                      {{ column.label }}
+                      <span class="sort-indicator" aria-hidden="true">
+                        {{ getSortIndicator(column.key) }}
+                      </span>
+                    </button>
+                  </th>
                 }
-                <th scope="col">Revisions</th>
-                <th scope="col">Record state</th>
+                <th scope="col" [attr.aria-sort]="getAriaSort('__REVISIONS__')">
+                  <button type="button" class="sort-button" (click)="toggleSort('__REVISIONS__')">
+                    Revisions
+                    <span class="sort-indicator" aria-hidden="true">
+                      {{ getSortIndicator('__REVISIONS__') }}
+                    </span>
+                  </button>
+                </th>
+                <th scope="col" [attr.aria-sort]="getAriaSort('__RECORD_STATE__')">
+                  <button
+                    type="button"
+                    class="sort-button"
+                    (click)="toggleSort('__RECORD_STATE__')"
+                  >
+                    Record state
+                    <span class="sort-indicator" aria-hidden="true">
+                      {{ getSortIndicator('__RECORD_STATE__') }}
+                    </span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
               @for (row of filteredRows; track row.id) {
                 <tr class="record-row" [class.record-row--expanded]="isRowExpanded(row.id)">
                   <td>
-                    <button
-                      type="button"
-                      class="expand-button"
-                      [attr.aria-expanded]="isRowExpanded(row.id)"
-                      [attr.aria-label]="'Toggle audit history for record ' + row.id"
-                      (click)="toggleRow(row.id)"
-                    >
-                      <span [class.chevron--open]="isRowExpanded(row.id)">⌄</span>
-                    </button>
+                    @if (canExpandRow(row)) {
+                      <button
+                        type="button"
+                        class="expand-button"
+                        [attr.aria-expanded]="isRowExpanded(row.id)"
+                        [attr.aria-label]="
+                          (isRowExpanded(row.id) ? 'Collapse' : 'Expand') +
+                          ' audit history for record ' +
+                          row.id
+                        "
+                        (click)="toggleRow(row.id)"
+                      >
+                        <span [class.chevron--open]="isRowExpanded(row.id)">⌄</span>
+                      </button>
+                    }
                   </td>
                   <td class="record-id">#{{ row.id }}</td>
                   @for (column of columns; track column.key) {
@@ -303,7 +345,7 @@
                   </td>
                 </tr>
 
-                @if (isRowExpanded(row.id)) {
+                @if (canExpandRow(row) && isRowExpanded(row.id)) {
                   <tr class="history-row">
                     <td [attr.colspan]="columns.length + 4">
                       <div class="history-content">
@@ -381,6 +423,7 @@
             <option value="10">10</option>
             <option value="25">25</option>
             <option value="50">50</option>
+            <option value="100">100</option>
           </select>
           <span>
             {{ currentPageStart }} – {{ currentPageEnd }} of

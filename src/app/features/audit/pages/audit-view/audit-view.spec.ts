@@ -94,6 +94,21 @@ const locomotiveResponse = createResponse(
   },
 );
 
+const locomotiveRecord = locomotiveResponse.data.rows[0];
+const firstLocomotiveRevision = locomotiveRecord.auditHistory[0];
+locomotiveRecord.changeSummary.totalRevisions = 2;
+locomotiveRecord.changeSummary.updateCount = 1;
+locomotiveRecord.changeSummary.latestRevision = 9450;
+locomotiveRecord.auditHistory.push({
+  ...firstLocomotiveRevision,
+  sequenceNumber: 2,
+  revision: 9450,
+  revisionTypeCode: 1,
+  operation: 'UPDATE',
+  REV: 9450,
+  REVTYPE: 1,
+});
+
 const labelsResponse: AuditTableLabelsApiResponse = {
   timestamp: '2026-09-14T04:30:00Z',
   status: 'SUCCESS',
@@ -209,6 +224,78 @@ describe('AuditView', () => {
     expect(historyText).toContain('SG-L-001');
   });
 
+  it('searches visible table names and supports keyboard selection', async () => {
+    const fixture = await createFixture();
+    const component = fixture.componentInstance;
+    const element = fixture.nativeElement as HTMLElement;
+    const search = element.querySelector('#audit-view-table-search') as HTMLInputElement;
+
+    search.value = 'Singapore locomotives';
+    search.dispatchEvent(new Event('input'));
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+
+    expect(component.selectedTableLabel).toBe('Loco Singapore');
+    expect(component.getTableInitials('Loco Singapore')).toBe('SG');
+    expect(recordRequests.at(-1)?.tableLabel).toBe('Loco Singapore');
+  });
+
+  it('sorts record fields in ascending, descending, and original order', async () => {
+    const fixture = await createFixture();
+    const component = fixture.componentInstance;
+
+    await selectTable(fixture, 'Loco Singapore');
+
+    const originalRow = component.rows[0];
+    component.rows = [
+      {
+        ...originalRow,
+        id: 2002,
+        values: { ...originalRow.values, LOCOMOTIVE_CODE: 'SG-L-002' },
+      },
+      {
+        ...originalRow,
+        id: 1998,
+        values: { ...originalRow.values, LOCOMOTIVE_CODE: 'SG-L-LEGACY' },
+      },
+    ];
+
+    component.toggleSort('ID');
+    expect(component.filteredRows.map((row) => row.id)).toEqual([1998, 2002]);
+    expect(component.getAriaSort('ID')).toBe('ascending');
+
+    component.toggleSort('ID');
+    expect(component.filteredRows.map((row) => row.id)).toEqual([2002, 1998]);
+    expect(component.getAriaSort('ID')).toBe('descending');
+
+    component.toggleSort('ID');
+    expect(component.filteredRows.map((row) => row.id)).toEqual([2002, 1998]);
+    expect(component.getAriaSort('ID')).toBeNull();
+  });
+
+  it('shows expansion only when a record has multiple revisions', async () => {
+    const fixture = await createFixture();
+    const component = fixture.componentInstance;
+    const element = fixture.nativeElement as HTMLElement;
+
+    await selectTable(fixture, 'Loco Singapore');
+    expect(element.querySelector('.expand-button')).not.toBeNull();
+
+    component.rows = [
+      {
+        ...component.rows[0],
+        revisionCount: 1,
+        auditHistory: [component.rows[0].auditHistory[0]],
+      },
+    ];
+    fixture.changeDetectorRef.markForCheck();
+    await fixture.whenStable();
+
+    expect(component.canExpandRow(component.rows[0])).toBe(false);
+    expect(element.querySelector('.expand-button')).toBeNull();
+  });
+
   it('offers source fields only and applies typed AND/OR conditions', async () => {
     const fixture = await createFixture();
     const component = fixture.componentInstance;
@@ -305,6 +392,12 @@ describe('AuditView', () => {
     });
     expect(component.currentPageNo).toBe(0);
     expect(component.itemsPerPage).toBe(25);
+    expect(Array.from(pageSizeSelect.options, (option) => option.value)).toEqual([
+      '10',
+      '25',
+      '50',
+      '100',
+    ]);
   });
 
   it('returns to the choose-table state when refreshed', async () => {
